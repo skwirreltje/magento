@@ -1,12 +1,15 @@
 <?xml version="1.0" ?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
     <system>
-        <section id="skwirrel" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label">
-            <label>skwirrel</label>
-            <tab>service</tab>
+        <tab id="skwirrel" sortOrder="999" translate="label">
+            <label>Skwirrel</label>
+        </tab>
+        <section id="settings" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label">
+            <label>Settings</label>
+            <tab>skwirrel</tab>
             <resource>Skwirrel_Pim::config_skwirrel_pim</resource>
             <group id="api_options" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label">
-                <label>API options</label>
+                <label>Api Options</label>
                 <field id="selection_id" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label" type="text">
                     <label>Selection Id</label>
                     <comment/>
