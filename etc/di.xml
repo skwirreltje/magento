@@ -1,0 +1,82 @@
+<?xml version="1.0" ?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+
+
+	<type name="Magento\Framework\Console\CommandList">
+		<arguments>
+			<argument name="commands" xsi:type="array">
+				<item name="CreateConfig" xsi:type="object">Skwirrel\Pim\Console\Command\CreateConfigProduct</item>
+				<item name="ImportProducts" xsi:type="object">Skwirrel\Pim\Console\Command\ImportProducts</item>
+				<item name="CreateAttribute" xsi:type="object">Skwirrel\Pim\Console\Command\CreateAttribute</item>
+				<item name="DownloadProducts" xsi:type="object">Skwirrel\Pim\Console\Command\DownloadProducts</item>
+				<item name="GetProduct" xsi:type="object">Skwirrel\Pim\Console\Command\GetProduct</item>
+				<item name="ParseProducts" xsi:type="object">Skwirrel\Pim\Console\Command\ParseProducts</item>
+				<item name="ImportCategories" xsi:type="object">Skwirrel\Pim\Console\Command\ImportCategories</item>
+				<item name="ProcessCommand" xsi:type="object">Skwirrel\Pim\Console\Command\ProcessCommand</item>
+			</argument>
+		</arguments>
+	</type>
+
+	<type name="\Skwirrel\Pim\Model\Import\Attribute">
+		<arguments>
+			<argument name="converter" xsi:type="object">Skwirrel\Pim\Model\Converter\Attribute</argument>
+		</arguments>
+	</type>
+
+	<type name="Skwirrel\Pim\Model\Import\Category">
+		<arguments>
+			<argument name="converter" xsi:type="object">Skwirrel\Pim\Model\Converter\Category</argument>
+		</arguments>
+	</type>
+
+	<type name="Skwirrel\Pim\Model\Import\Product">
+		<arguments>
+			<argument name="converter" xsi:type="object">Skwirrel\Pim\Model\Converter\Product</argument>
+		</arguments>
+	</type>
+
+	<type name="Skwirrel\Pim\Model\Import\AttributeSet">
+		<arguments>
+			<argument name="converter" xsi:type="object">Skwirrel\Pim\Model\Converter\AttributeSet</argument>
+		</arguments>
+	</type>
+
+	<type name="Skwirrel\Pim\Model\Import\Brand">
+		<arguments>
+			<argument name="converter" xsi:type="object">Skwirrel\Pim\Model\Converter\Brand</argument>
+		</arguments>
+	</type>
+
+	<type name="\Skwirrel\Pim\Model\Import\Attribute\TypeFactory">
+		<arguments>
+			<argument name="types"  xsi:type="array">
+				<item name="default" xsi:type="string">\Skwirrel\Pim\Model\Import\Attribute\StringType</item>
+				<item name="string" xsi:type="string">\Skwirrel\Pim\Model\Import\Attribute\StringType</item>
+				<item name="select" xsi:type="string">\Skwirrel\Pim\Model\Import\Attribute\SelectType</item>
+				<item name="text" xsi:type="string">\Skwirrel\Pim\Model\Import\Attribute\TextType</item>
+			</argument>
+		</arguments>
+	</type>
+
+	<preference for="Skwirrel\Pim\Import\Mapping\Config\Resolver\ResolverInterface" type="Skwirrel\Pim\Import\Mapping\Config\Resolver\FileSystem"/>
+	<preference for="Skwirrel\Pim\Api\MappingInterface" type="Skwirrel\Pim\Model\Mapping"/>
+	<preference for="Skwirrel\Pim\Model\Converter\Category\ObjectInterface" type="Skwirrel\Pim\Model\Converter\Category\Object"/>
+	<preference for="Skwirrel\Pim\WebApi\ProductManagementInterface" type="Skwirrel\Pim\Model\WebApi\ProductManagement"/>
+	<preference for="Skwirrel\Pim\WebApi\WebhookParamsInterface" type="Skwirrel\Pim\Model\WebApi\WebhookParams"/>
+
+	<virtualType name="Skwirrel\Pim\Logger\Monolog" type="Magento\Framework\Logger\Monolog">
+		<arguments>
+			<argument name="name" xsi:type="string">Skwirrel</argument>
+			<argument name="handlers"  xsi:type="array">
+				<item name="debug" xsi:type="object">Skwirrel\Pim\Logger\Handler\Debug</item>
+				<item name="report" xsi:type="object">Skwirrel\Pim\Logger\Handler\Report</item>
+			</argument>
+		</arguments>
+	</virtualType>
+	<type name="\Skwirrel\Pim\Model\AbstractModel">
+		<arguments>
+			<argument name="logger" xsi:type="object">Skwirrel\Pim\Logger\Monolog</argument>
+		</arguments>
+	</type>
+
+</config>

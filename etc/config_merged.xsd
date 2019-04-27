@@ -1,0 +1,4 @@
+<?xml version="1.0" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<xs:include schemaLocation="urn:magento:module:Skwirrel_Pim:etc/config.xsd"/>
+</xs:schema>

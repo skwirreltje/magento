@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Backend:etc/menu.xsd">
+	<menu>
+		<add id="Skwirrel::top_level" module="Skwirrel_Pim" resource="Magento_Backend::content" sortOrder="9999" title="Skwirrel"/>
+		<add action="skwirrel_pim/pimmapping/index" id="Skwirrel_Pim::skwirrel_pim_pimmapping" module="Skwirrel_Pim" parent="Skwirrel::top_level" resource="Magento_Backend::content" sortOrder="9999" title="PimMapping"/>
+	</menu>
+</config>

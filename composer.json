@@ -1,0 +1,24 @@
+{
+    "name": "skwirrel/module-pim",
+    "description": "",
+    "type": "magento2-module",
+    "license": "proprietary",
+    "authors": [
+        {
+            "email": "r.theeuwes@gmail.com",
+            "name": "Rob Theeuwes"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "guzzlehttp/guzzle": "^6.0"
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "Skwirrel\\Pim\\": ""
+        }
+    }
+}

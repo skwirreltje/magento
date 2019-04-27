@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Mapping>
+
+    <defaults>
+        <language>en</language>
+        <category_id>2</category_id>
+    </defaults>
+    <processes>
+        <Brand>
+            <options>
+                <attribute_code>brand</attribute_code>
+            </options>
+        </Brand>
+        <Manufacturer>
+            <options>
+                <attribute_code>manufacturer</attribute_code>
+            </options>
+        </Manufacturer>
+        <Attribute>
+            <options>
+                <create_unmapped>1</create_unmapped>
+            </options>
+        </Attribute>
+        <AttributeSet>
+            <options>
+                <create_unmapped>1</create_unmapped>
+            </options>
+        </AttributeSet>
+        <Category>
+            <options>
+                <super_category_id>2</super_category_id>
+            </options>
+        </Category>
+        <Product>
+        </Product>
+    </processes>
+    <entities>
+        <AttributeSet>
+            <set etim_class="EC011289" magento_name="Toilets"></set>
+            <set etim_class="*" magento_name="Default"></set>
+        </AttributeSet>
+        <Category>
+
+        </Category>
+        <Product>
+            <attribute source_code="ef002169" target_code="material" is_global="1" used_in_listing="1" data_type="select" visible_on_front="1"/>
+            <attribute source_code="ef004669" target_code="sleeve_color" is_global="1"  used_in_listing="1" data_type="select" visible_on_front="1"/>
+            <attribute source_code="ef000007" target_code="item_color" is_global="1"  used_in_listing="1" data_type="select" visible_on_front="1"/>
+        </Product>
+    </entities>
+    <websites>
+        <Demo id="base">
+            <locale>en</locale>
+            <default>1</default>
+        </Demo>
+        <DemoNl id="nl">
+            <locale>nl</locale>
+        </DemoNl>
+    </websites>
+    <locales>
+        <English id="en" storeviewcode="default"/>
+        <Dutch id="nl" storeviewcode="nl"/>
+    </locales>
+    <categories>
+        <root>1</root>
+    </categories>
+
+</Mapping>

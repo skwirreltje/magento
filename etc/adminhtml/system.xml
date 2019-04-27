@@ -1,0 +1,25 @@
+<?xml version="1.0" ?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <section id="skwirrel" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label">
+            <label>skwirrel</label>
+            <tab>service</tab>
+            <resource>Skwirrel_Pim::config_skwirrel_pim</resource>
+            <group id="api_options" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label">
+                <label>API options</label>
+                <field id="selection_id" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label" type="text">
+                    <label>Selection Id</label>
+                    <comment/>
+                </field>
+                <field id="url" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label" type="text">
+                    <label>Url</label>
+                    <comment/>
+                </field>
+                <field id="api_token" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label" type="text">
+                    <label>Api Token</label>
+                    <comment/>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>

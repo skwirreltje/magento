@@ -1,0 +1,15 @@
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	<xs:element name="config">
+		<xs:complexType>
+			<xs:choice maxOccurs="unbounded">
+				<xs:element maxOccurs="unbounded" minOccurs="0" name="api" type="apiType"/>
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+	<xs:complexType name="apiType">
+		<xs:sequence>
+			<xs:element name="url" type="xs:string"/>
+			<xs:element name="api_token" type="xs:string"/>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>
