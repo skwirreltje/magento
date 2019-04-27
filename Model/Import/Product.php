@@ -154,14 +154,13 @@ class Product extends AbstractImport
             } else {
 
                 $product = $this->productFactory->create();
-                $product->setAttributeSetId($attributeSetId);
 
                 $product->setData($productData);
                 foreach ($attributeData as $key => $value) {
                     $product->setData($key, $value);
                 }
 
-
+                $product->setAttributeSetId($attributeSetId);
                 $product->setCategoryIds($productCategoryIds);
                 $newProduct = $this->productRepository->save($product);
 
@@ -188,7 +187,8 @@ class Product extends AbstractImport
 
     }
 
-    protected function handleProductImages($product, $images){
+    protected function handleProductImages($product, $images)
+    {
         $existingGalleryImages = [];
         $imagesToKeep = [];
 
@@ -197,7 +197,7 @@ class Product extends AbstractImport
             $product->setMediaGallery(['images' => [], 'values' => []]);
         }
 
-        foreach($product->getMediaGalleryEntries() as $entry){
+        foreach ($product->getMediaGalleryEntries() as $entry) {
             $imageId = md5(basename($entry->getFile()));
             $existingGalleryImages[$imageId] = $entry->getFile();
         }
@@ -205,19 +205,18 @@ class Product extends AbstractImport
         foreach ($images as $image) {
             //create copy to import directory
             $imageId = md5(basename($this->helper->createImageImportFile($image, false)));
-            if(!isset($existingGalleryImages[$imageId])){
+            if (!isset($existingGalleryImages[$imageId])) {
                 $importFilename = $this->helper->createImageImportFile($image, true);
-                $this->galleryProcessor->addImage($product, $importFilename, ['image', 'small_image', 'thumbnail'], true,false);
+                $this->galleryProcessor->addImage($product, $importFilename, ['image', 'small_image', 'thumbnail'], false, false);
                 $imagesToKeep[$imageId] = $imageId;
 
-            }
-            else{
+            } else {
                 $imagesToKeep[$imageId] = $imageId;
             }
         }
 
-        foreach($existingGalleryImages as $imageId => $existingGalleryImage){
-            if(!isset($imagesToKeep[$imageId])){
+        foreach ($existingGalleryImages as $imageId => $existingGalleryImage) {
+            if (!isset($imagesToKeep[$imageId])) {
                 $this->galleryProcessor->removeImage($product, $existingGalleryImage);
             }
         }
@@ -273,20 +272,25 @@ class Product extends AbstractImport
 
     private function findProductAttributeValue($magentoAttributeName, $attributeValue)
     {
-        $attribute = $this->attributeRepository->get($magentoAttributeName);
-        if (!$attribute) {
-            return $attributeValue;
-        }
-
-        if ($attribute->getBackendType() == 'int' && $attribute->getFrontendInput() == 'select') {
-
-            $options = $attribute->getOptions();
-            foreach ($options as $option) {
-                if ($option->getLabel() == $attributeValue) {
-                    return $option->getValue();
-                }
+        try {
+            $attribute = $this->attributeRepository->get($magentoAttributeName);
+            if (!$attribute) {
+                return $attributeValue;
             }
 
+            if ($attribute->getBackendType() == 'int' && $attribute->getFrontendInput() == 'select') {
+
+                $options = $attribute->getOptions();
+                foreach ($options as $option) {
+                    if ($option->getLabel() == $attributeValue) {
+                        return $option->getValue();
+                    }
+                }
+
+            }
+
+        } catch (\Exception $e) {
+            $this->logger->error(sprintf('Attribute with code %s could not be found', $magentoAttributeName));
         }
         return $attributeValue;
     }
@@ -295,10 +299,11 @@ class Product extends AbstractImport
     {
 
         $classCode = $etim['etim_class_code'];
-        if($alias = $this->getMappedAttributeSetByClassCode($classCode)){
+        if ($alias = $this->getMappedAttributeSetByClassCode($classCode)) {
             if (($attributeSet = $this->getAttributeSetByName($alias))) {
                 return $attributeSet->getId();
             }
+
             return;
 
         }
@@ -319,9 +324,10 @@ class Product extends AbstractImport
 
     }
 
-    public function getMappedAttributeSetByClassCode($classCode){
-        foreach($this->mapping->getAttributeSets() as $set){
-            if($set['class_id'] == $classCode){
+    public function getMappedAttributeSetByClassCode($classCode)
+    {
+        foreach ($this->mapping->getAttributeSets() as $set) {
+            if ($set['class_id'] == $classCode) {
                 return $set['magento_name'];
             }
         }
