@@ -64,7 +64,6 @@ class ParseProducts extends Command
      * @param \Magento\Framework\App\State $state
      */
     public function __construct(
-        $name = null,
         \Skwirrel\Pim\Client\ApiClient $apiClient,
         \Skwirrel\Pim\Helper\Data $dataHelper,
         \Magento\Framework\Filesystem\Directory\ReadFactory $directoryReadFactory,
@@ -72,7 +71,7 @@ class ParseProducts extends Command
         \Magento\Framework\App\State $state
     ) {
 
-        parent::__construct($name);
+        parent::__construct();
         $this->state = $state;
         $this->apiClient = $apiClient;
         $this->dataHelper = $dataHelper;

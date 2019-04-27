@@ -30,9 +30,9 @@ class CreateAttribute extends Command
     private $setup;
 
 
-    public function __construct($name = null, EavSetupFactory $setupFactory, ModuleDataSetupInterface $setup)
+    public function __construct(EavSetupFactory $setupFactory, ModuleDataSetupInterface $setup)
     {
-        parent::__construct($name);
+        parent::__construct();
         $this->setupFactory = $setupFactory;
         $this->setup = $setup;
     }

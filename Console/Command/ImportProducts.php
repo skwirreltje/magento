@@ -126,7 +126,6 @@ class ImportProducts extends Command
     const STORE_BASE = 0;
 
     public function __construct(
-        $name = null,
         \Magento\Catalog\Model\ProductFactory $productFactory,
         \Magento\Eav\Model\Entity\Attribute $entityAttribute,
         \Magento\Catalog\Model\ProductRepository $productRepository,
@@ -147,7 +146,7 @@ class ImportProducts extends Command
     ) {
         $this->productFactory = $productFactory;
 
-        parent::__construct($name);
+        parent::__construct();
         $this->state = $state;
         $this->entityAttribute = $entityAttribute;
         $this->productRepository = $productRepository;

@@ -4,7 +4,7 @@
         <tab id="skwirrel" sortOrder="999" translate="label">
             <label>Skwirrel</label>
         </tab>
-        <section id="settings" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label">
+        <section id="skwirrel" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label">
             <label>Settings</label>
             <tab>skwirrel</tab>
             <resource>Skwirrel_Pim::config_skwirrel_pim</resource>

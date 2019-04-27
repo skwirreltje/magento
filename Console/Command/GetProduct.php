@@ -57,7 +57,6 @@ class GetProduct extends Command
     private $importer;
 
     public function __construct(
-        $name = null,
         \Skwirrel\Pim\Client\ApiClient $apiClient,
         \Magento\Framework\App\State $state,
         MappingInterface $mapping,
@@ -67,7 +66,7 @@ class GetProduct extends Command
 
     ) {
 
-        parent::__construct($name);
+        parent::__construct();
         $this->state = $state;
         $this->apiClient = $apiClient;
         $this->mapping = $mapping;

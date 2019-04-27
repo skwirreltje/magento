@@ -53,7 +53,6 @@ class DownloadProducts extends Command
     private $progress;
 
     public function __construct(
-        $name = null,
         \Skwirrel\Pim\Console\Progress $progress,
 
         \Skwirrel\Pim\Client\ApiClient $apiClient,
@@ -63,7 +62,7 @@ class DownloadProducts extends Command
         \Magento\Framework\App\State $state
     ) {
 
-        parent::__construct($name);
+        parent::__construct();
         $this->state = $state;
         $this->apiClient = $apiClient;
         $this->dataHelper = $dataHelper;

@@ -77,7 +77,6 @@ class ProcessCommand extends Command
      * @param \Magento\Framework\App\State $state
      */
     public function __construct(
-        $name = null,
         \Skwirrel\Pim\Console\Progress $progress,
 
         \Skwirrel\Pim\Helper\Data $dataHelper,
@@ -87,7 +86,7 @@ class ProcessCommand extends Command
         \Magento\Framework\App\State $state
     ) {
 
-        parent::__construct($name);
+        parent::__construct();
 
         $this->state = $state;
         $this->dataHelper = $dataHelper;
