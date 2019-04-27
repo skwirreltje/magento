@@ -147,7 +147,20 @@ class Product extends AbstractConverter
             case Attribute::FEATURE_TYPE_SELECT:
                 if (isset($feature['_etim_value_translations'])) {
                     $trans = array_values($feature['_etim_value_translations'])[0];
-                    return $trans['etim_value_description'];
+                    $values = [
+                        0 => $trans['etim_value_description']
+                    ];
+
+                    foreach($this->mapping->getWebsites() as $website){
+                        foreach($website['storeviews'] as $storeview){
+                            $locale = $storeview['locale'];
+                            if(isset($feature['_etim_value_translations'][$locale]))
+                            {
+                                $values[$storeview['storeviewid']] = $feature['_etim_value_translations'][$locale]['etim_value_description'];
+                            }
+                        }
+                    }
+                    return $values;
                 }
                 break;
             case Attribute::FEATURE_TYPE_LOGICAL:

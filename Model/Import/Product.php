@@ -139,7 +139,6 @@ class Product extends AbstractImport
                 $magentoProductId = $existingProducts[$skwirrelProductId];
                 $product = $this->productRepository->getById($magentoProductId);
 
-
                 foreach ($attributeData as $key => $value) {
                     $product->setData($key, $value);
                 }
@@ -270,7 +269,7 @@ class Product extends AbstractImport
         return $products;
     }
 
-    private function findProductAttributeValue($magentoAttributeName, $attributeValue)
+    private function findProductAttributeValue($magentoAttributeName, $attributeValue, $retry = false)
     {
         try {
             $attribute = $this->attributeRepository->get($magentoAttributeName);
@@ -280,11 +279,35 @@ class Product extends AbstractImport
 
             if ($attribute->getBackendType() == 'int' && $attribute->getFrontendInput() == 'select') {
 
+                if(is_array($attributeValue)){
+                    $optionValue = $attributeValue[0];
+                }
+                else{
+                    $optionValue = $attributeValue;
+                }
+
                 $options = $attribute->getOptions();
                 foreach ($options as $option) {
-                    if ($option->getLabel() == $attributeValue) {
+                    if ($option->getLabel() == $optionValue) {
                         return $option->getValue();
                     }
+                }
+
+                if (trim($optionValue) != '' && !$retry) {
+                    $newOptions = [
+                        'option' => [
+                            'value' => [
+                                'option_0' => $attributeValue
+
+                            ]
+                        ]
+                    ];
+
+                    $attribute->addData($newOptions);
+                    $attribute->save();
+                    return $this->findProductAttributeValue($magentoAttributeName, $attributeValue, true);
+
+
                 }
 
             }

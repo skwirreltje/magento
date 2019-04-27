@@ -142,6 +142,7 @@ class Attribute extends AbstractImport
 
                 if ($attribute['pim_data']['has_options']) {
                     $options = $this->formatOptions($attribute);
+
                     $this->addAttributeOptions($attributeCode, $options);
                 }
 
@@ -162,7 +163,6 @@ class Attribute extends AbstractImport
 
                         $addOptions = [];
 
-
                         $options = $this->formatOptions($attribute);
                         foreach ($options['option']['value'] as $key => $values) {
                             if (!in_array($values[0], $existingOptions)) {
@@ -170,7 +170,8 @@ class Attribute extends AbstractImport
                             }
                         }
                         if (count($addOptions)) {
-                            $this->addAttributeOptions($attributeCode, $options);
+                            $addOptions = ['option' => ['value' => $addOptions]];
+                            $this->addAttributeOptions($attributeCode, $addOptions);
                         }
                     }
 
