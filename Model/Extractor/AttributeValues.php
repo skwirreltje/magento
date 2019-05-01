@@ -32,7 +32,7 @@ class AttributeValues
 
     private function extractSelectValue($feature)
     {
-        $defaultLanguage = 'en';
+        $defaultLanguage = Mapping::SYSTEM_LANGUAGE_CODE;
         $translations = $feature->_etim_value_translations;
 
         if(isset($translations->{$defaultLanguage})){

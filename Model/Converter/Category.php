@@ -87,7 +87,7 @@ class Category extends AbstractConverter
 
 
     /**
-     * This function converts the inRiver data to Magento 2 ready data and i run
+     * This function converts the Skwirrel data to Magento 2 ready data and i run
      * from the construct by default. Should be an array of entities's data.
      * Entity data structure depends on its corresponding import model.
      *
@@ -146,7 +146,6 @@ class Category extends AbstractConverter
         if (isset($response->categories)) {
 
             $categoryCount = count((array) $response->categories);
-            $this->progress->info(sprintf('Found %s categories', $categoryCount));
             $this->progress->barStart('category', $categoryCount);
             $categories = $this->parseCategories($response->categories);
             $this->categories = $categories;

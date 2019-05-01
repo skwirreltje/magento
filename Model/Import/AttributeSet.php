@@ -62,8 +62,7 @@ class AttributeSet extends AbstractImport
         \Magento\Catalog\Setup\CategorySetupFactory $categorySetupFactory,
         \Magento\Setup\Module\DataSetup $dataSetup
 
-    )
-    {
+    ) {
         parent::__construct($logger, $progress, $mapping, $helper, $converter);
         $this->attributeCollection = $attributeCollectionFactory->create();
 
@@ -84,8 +83,7 @@ class AttributeSet extends AbstractImport
 
         $process = $this->getProcess();
 
-        $createIfNotMapped = isset($process['options']['create_unmapped']) ? (bool) $process['options']['create_unmapped'] : false;
-
+        $createIfNotMapped = isset($process['options']['create_unmapped']) ? (bool)$process['options']['create_unmapped'] : false;
 
         $defaultSetId = $this->eavSetup->getDefaultAttributeSetId(\Magento\Catalog\Model\Product::ENTITY);
 
@@ -99,40 +97,34 @@ class AttributeSet extends AbstractImport
         foreach ($parsedProducts as $classId => $parsedProduct) {
             $currentAttributeSetId = $defaultSetId;
 
-            if(!isset($attributeSetIndex[$classId])){
+            if (!isset($attributeSetIndex[$classId])) {
                 $attributeSetName = $this->findAttributeSetNameByClassId($classId);
-                if(!$attributeSetName){
+                if (!$attributeSetName) {
 
-                    if($createIfNotMapped == false){
+                    if ($createIfNotMapped == false) {
                         // try to find fallback
-                        if( ($fallbackSetName = $this->findAttributeSetNameByClassId('*'))){
+                        if (($fallbackSetName = $this->findAttributeSetNameByClassId('*'))) {
                             $attributeSetName = $fallbackSetName;
-                            $this->logger->info('Using fallback '.$fallbackSetName.' for '.$classId);
-                        }
-                        else{
-                            //print_r('fuck this:'.$classId);
+                            $this->logger->info('Using fallback ' . $fallbackSetName . ' for ' . $classId);
+                        } else {
                             continue;
                         }
-                    }
-                    else{
+                    } else {
                         $attributeSetName = $this->getAttributeSetNameFromProduct($parsedProduct);
                     }
                 }
-                if($attributeSetName){
+                if ($attributeSetName) {
                     $attributeSetIndex[$classId] = $attributeSetName;
                 }
-            }
-            else{
+            } else {
                 $attributeSetName = $attributeSetIndex[$classId];
             }
 
-            if(!$attributeSetName){
+            if (!$attributeSetName) {
                 continue;
             }
 
 
-
-            print_r([$attributeSetName]);
             $attributeSet = $this->processAttributeSet($attributeSetName);
             $currentAttributeSetId = $attributeSet->getId();
 
@@ -145,7 +137,6 @@ class AttributeSet extends AbstractImport
                         $magentoAttributeCode = $mappedAttribute->getMagentoName();
                     }
                 }
-                print_r([$attributeSetName => $magentoAttributeCode]);
 
                 $this->eavSetup->addAttributeToSet(
                     \Magento\Catalog\Model\Product::ENTITY,
@@ -243,6 +234,14 @@ class AttributeSet extends AbstractImport
                 $this->parsedProductData[$etimCode]['attributes'][$magentoCode] = $this->parseProductFeature($feature);
             }
         }
+
+        $tradeItems = $productData['_trade_items'];
+        foreach ($tradeItems as $tradeItem) {
+            $attributeCode = $this->mapping->getAttributeCodeForTradeItemUnit($tradeItem['use_unit_uom']);
+            if (!isset($this->parsedProductData[$etimCode]['attributes'][$attributeCode])) {
+                $this->parsedProductData[$etimCode]['attributes'][$attributeCode] = [];
+            }
+        }
     }
 
     /**
@@ -318,8 +317,8 @@ class AttributeSet extends AbstractImport
     private function findAttributeSetNameByClassId($classId)
     {
 
-        foreach($this->mappedSets as $mappedSet){
-            if($mappedSet['class_id'] == $classId){
+        foreach ($this->mappedSets as $mappedSet) {
+            if ($mappedSet['class_id'] == $classId) {
                 return $mappedSet['magento_name'];
             }
         }
@@ -329,12 +328,11 @@ class AttributeSet extends AbstractImport
     private function getAttributeSetNameFromProduct($parsedProduct)
     {
         $defaultLanguage = $this->mapping->getDefaultLanguage();
-        if(isset($parsedProduct['translations'][$defaultLanguage])){
+        if (isset($parsedProduct['translations'][$defaultLanguage])) {
             return $parsedProduct['translations'][$defaultLanguage]['etim_class_description'];
-        }
-        else{
+        } else {
             $translation = array_values($parsedProduct['translations']);
-            if(isset($translation[0])){
+            if (isset($translation[0])) {
                 return $translation[0]['etim_class_description'];
             }
         }

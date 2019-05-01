@@ -102,8 +102,9 @@ class DownloadProducts extends Command
                         $attachments = $this->parseAttachments($product);
                         $product->attachments = $this->writeProductAttachments($basePath,$product,$attachments);
                         $this->writeProductItem($basePath, $product);
-
-
+                    }
+                    else{
+                        print_r($product);
                     }
                     $this->progress->barAdvance('product');
                 }
@@ -131,10 +132,11 @@ class DownloadProducts extends Command
             'include_attachments' => true,
             'include_trade_items' => true,
             'include_trade_item_prices' => true,
+            'include_trade_item_translations' => true,
             'include_etim' => true,
             'include_related_products' => false,
-            'include_product_translations' => false,
-            'include_languages' => ['nl', 'en']
+            'include_product_translations' => true,
+            'include_languages' => ['en', 'nl']
         ]);
 
         return $response;
@@ -168,7 +170,7 @@ class DownloadProducts extends Command
     {
 
         if (!isset($product->{'_trade_items'}) || empty($product->{'_trade_items'})) {
-            return false;
+           //  return false;
         }
         if (!isset($product->{'_etim'}) || empty($product->{'_etim'}->{'_etim_features'})) {
 

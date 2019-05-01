@@ -4,7 +4,7 @@ use Skwirrel\Pim\Api\MappingInterface;
 use Skwirrel\Pim\Console\Progress;
 
 /**
- * Abstract model for the inRiver import to get module logger, import mapping
+ * Abstract model for the Skwirrel import to get module logger, import mapping
  * handler and configuration helper.
  */
 abstract class AbstractModel

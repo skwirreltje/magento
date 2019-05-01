@@ -1,18 +1,17 @@
 <?php
 namespace Skwirrel\Pim\Model\Import;
 
-use Magento\Eav\Model\AttributeSetManagement;
 use Skwirrel\Pim\Model\Converter\Etim\EtimAttribute;
 use Skwirrel\Pim\Model\Mapping;
 use Symfony\Component\Console\Helper\ProgressBar;
 
-class Brand extends AbstractImport
+class Manufacturer extends AbstractImport
 {
 
-    const PROCESS_NAME = 'Brand';
-    const DEFAULT_ATTRIBUTE_CODE = 'brand';
+    const PROCESS_NAME = 'Manufacturer';
+    const DEFAULT_ATTRIBUTE_CODE = 'manufacturer';
 
-    protected $existingBrands = [];
+    protected $existingItems = [];
 
     /**
      * @var \Magento\Catalog\Model\ResourceModel\Product\Attribute\Collection
@@ -76,7 +75,6 @@ class Brand extends AbstractImport
         $this->attributeSetFactory = $attributeSetFactory;
     }
 
-
     public function getAttributeCode(){
 
         $config = $this->mapping->getProcess(self::PROCESS_NAME);
@@ -86,38 +84,39 @@ class Brand extends AbstractImport
     function import()
     {
 
-        $existingBrands = $this->getExistingItems();
+        $existingItems = $this->getExistingItems();
         $config = $this->getProcess();
 
         $attributeCode = $this->getAttributeCode();
 
         $data =  $this->getConvertedData();
-        $this->progress->barStart('brand', count($data));
+        $this->progress->info(sprintf('Found %s manufacturers', count($data)));
+        $this->progress->barStart(self::PROCESS_NAME, count($data));
 
         $websites = $this->mapping->getWebsites();
 
         $newOptions = ['option' => ['value' => []]];
         foreach($data as $id => $item){
             $optionId = 'option_'.$id;
-            if(!in_array($item->brand_name, $existingBrands)){
-                $newOptions['option']['value'][$optionId][0] = $item->brand_name;
+            if(!in_array($item->manufacturer_name, $existingItems)){
+                $newOptions['option']['value'][$optionId][0] = $item->manufacturer_name;
                 foreach($websites as $website){
                     foreach($website['storeviews'] as $storeview){
-                        $newOptions['option']['value'][$optionId][$storeview['storeviewid']] = $item->brand_name;
+                        $newOptions['option']['value'][$optionId][$storeview['storeviewid']] = $item->manufacturer_name;
                     }
                 }
             }
 
-            $this->progress->barAdvance('brand');
+            $this->progress->barAdvance(self::PROCESS_NAME);
         }
         if(count($newOptions)){
             $this->addAttributeOptions($attributeCode, $newOptions);
         }
 
-        $this->progress->barFinish('brand');
+        $this->progress->barFinish(self::PROCESS_NAME);
+
+
     }
-
-
 
 
     protected function addAttributeOptions($attributeCode, $options)
@@ -138,35 +137,35 @@ class Brand extends AbstractImport
 
     }
 
+
     private function getExistingItems()
     {
-        $config = $this->mapping->getProcess(self::PROCESS_NAME);
 
         $attributeCode = $this->getAttributeCode();
-
         $attribute = $this->attributeFactory->create();
         $attribute->loadByCode(\Magento\Catalog\Model\Product::ENTITY, $attributeCode);
+
 
         if (empty($attribute->getData())) {
 
             $this->createAttribute($attributeCode);
-            return $this->existingBrands;
-        }
+            return $this->existingItems;
 
-        $this->existingBrands = [];
+        }
+        $this->existingItems = [];
         $optionsData = $attribute->getSource()->getAllOptions();
         foreach ($optionsData as $option) {
-            $this->existingBrands[] = $option['label'];
+            $this->existingItems[] = $option['label'];
         }
 
-        return $this->existingBrands;
+        return $this->existingItems;
     }
 
     private function createAttribute($attributeCode)
     {
 
         $attributeData = [
-            'label' => 'Brand',
+            'label' => 'Manufacturer',
             'input' => 'select',
             'type' => 'int',
             'global' => 1,
@@ -205,10 +204,6 @@ class Brand extends AbstractImport
         $setCollection = $attributeSet->getResourceCollection()
             ->addFieldToFilter('entity_type_id', $entityTypeId)
             ->load();
-
-        /**
-         * @var $set \Magento\Eav\Model\Entity\Attribute\Set
-         */
         foreach ($setCollection as $set) {
             $this->eavSetup->addAttributeToSet(
                 \Magento\Catalog\Model\Product::ENTITY,

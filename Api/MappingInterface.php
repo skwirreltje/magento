@@ -20,5 +20,8 @@ interface MappingInterface
 
     public function getDefaultLanguage();
 
+    public function getAttributeCodeForTradeItemUnit($unit);
+
+    public function getSkwirrelId($id, $entityType);
 
 }

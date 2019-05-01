@@ -55,9 +55,24 @@ class Data extends AbstractHelper
         return $varPath.'/import/pim';
     }
 
-    public function createImageImportFile($imagePath, $doCopy = true){
-        $pubPath= $this->getDirectory('pub');
+    public function getNormalizedProductImageFromEntry($entry){
+        $fileName = basename($entry->getFile());
+        $parts = explode('.', $fileName);
+        $ext = array_pop($parts);
+        $name = implode('.',$parts);
 
+        $nameParts = explode('_',$name);
+        if(count($nameParts) >2){
+            array_pop($nameParts);
+        }
+
+        return implode('_',$nameParts).'.'.$ext;
+
+    }
+
+    public function createImageImportFile($imagePath, $doCopy = true){
+
+        $pubPath= $this->getDirectory('pub');
         $baseName = basename($imagePath);
 
         $targetPath = $pubPath.'/media/import';

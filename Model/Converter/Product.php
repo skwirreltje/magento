@@ -21,10 +21,15 @@ class Product extends AbstractConverter
      * @var \Magento\Framework\Filesystem\Directory\ReadFactory
      */
     private $directoryReadFactory;
+
     /**
-     * @var \Skwirrel\Pim\Model\Converter\Brand
+     * @var \Skwirrel\Pim\Model\Import\Brand
      */
-    private $brandConverter;
+    private $brandImporter;
+    /**
+     * @var \Skwirrel\Pim\Model\Import\Manufacturer
+     */
+    private $manufacturerImporter;
 
 
     public function __construct(
@@ -34,13 +39,14 @@ class Product extends AbstractConverter
         \Skwirrel\Pim\Api\MappingInterface $mapping,
         \Skwirrel\Pim\Helper\Data $helper,
         \Magento\Framework\Filesystem\Directory\ReadFactory $directoryReadFactory,
-        \Skwirrel\Pim\Model\Converter\Brand $brandConverter
-
+        \Skwirrel\Pim\Model\Import\Brand $brandImporter,
+        \Skwirrel\Pim\Model\Import\Manufacturer $manufacturerImporter
 
     ) {
         parent::__construct($logger, $progress, $mapping, $helper);
         $this->directoryReadFactory = $directoryReadFactory;
-        $this->brandConverter = $brandConverter;
+        $this->brandImporter = $brandImporter;
+        $this->manufacturerImporter = $manufacturerImporter;
     }
 
     /**
@@ -59,7 +65,6 @@ class Product extends AbstractConverter
     {
         $this->products = $this->getConvertedProductData();
 
-
     }
 
     private function getConvertedProductData()
@@ -77,15 +82,17 @@ class Product extends AbstractConverter
             }
         }
         $this->progress->info('Starting product conversion');
-        $this->progress->barStart('product_convert',count($files));
-        foreach($files as $filePath){
+        $this->progress->barStart('product_convert', count($files));
+        foreach ($files as $filePath) {
             $productData = json_decode(file_get_contents($filePath), true);
             if (!isset($productData['_etim']) || !isset($productData['_etim']['_etim_features'])) {
                 $this->progress->barAdvance('product_convert');
                 continue;
             }
+            foreach ($this->convertProduct($productData) as $item) {
+                $data[] = $item;
+            }
 
-            $data[] = $this->convertProduct($productData);
             $this->progress->barAdvance('product_convert');
 
         }
@@ -95,44 +102,75 @@ class Product extends AbstractConverter
 
     }
 
-    private function convertProduct($productData)
+    public function convertProduct($productData)
     {
         $features = $productData['_etim']['_etim_features'];
 
-        $sku = isset($productData['manufacturer_product_code']) ? $productData['manufacturer_product_code'] : 'skwirrel_' . $productData['product_id'];
-        $data = [
-            'sku' => $sku,
-            'name' => $sku,
-            'skwirrel_id' => $productData['product_id'],
-            'type' => 'simple',
-            'website_ids' => [1],
-            'attribute_set_id' => 4,
-            'status' => \Magento\Catalog\Model\Product\Attribute\Source\Status::STATUS_ENABLED,
-            'visibility' => 4,
-            'price' => $this->parseProductPrice($productData),
-            'stock_data' => [
-                'use_config_manage_stock' => 1,
-                'manage_stock' => 1,
-                'is_in_stock' => 1,
-                'qty' => 1
-            ],
-
-            'attributes' => [],
-            'skwirrel' => $productData
-        ];
-
-        foreach ($features as $code => $feature) {
-            $attributeCode = strtolower($code);
-            $data['attributes'][$attributeCode] = $this->parseProductFeatureValue($feature);
+        $products = [];
+        $tradeItems = $productData['_trade_items'];
+        if (count($tradeItems) == 0) {
+            return $products;
         }
 
-        foreach($this->brandConverter->getConvertedData() as $brand){
-            if($productData['brand_id'] == $brand->brand_id){
-                $data['attributes'][Brand::DEFAULT_ATTRIBUTE_CODE] = $brand->brand_name;
+        $isPartOfConfigurable = count($tradeItems) > 1 ? true : false;
+
+        foreach ($tradeItems as $tradeItem) {
+
+            $sku = $this->getSkuFromTradeItem($tradeItem);
+            $name = $this->getProductName($productData, $tradeItem);
+            $data = [
+                'sku' => $sku,
+                'name' => $name,
+                'skwirrel_id' => $this->mapping->getSkwirrelId($tradeItem['trade_item_id'], 'item'),
+                'type' => 'simple',
+                'website_ids' => [1],
+                'attribute_set_id' => 4,
+                'status' => \Magento\Catalog\Model\Product\Attribute\Source\Status::STATUS_ENABLED,
+                'visibility' => $isPartOfConfigurable ? 1 : 4,
+                'price' => $this->parseTradeItemPrice($tradeItem),
+                'stock_data' => [
+                    'use_config_manage_stock' => 1,
+                    'manage_stock' => 1,
+                    'is_in_stock' => 1,
+                    'qty' => 1
+                ],
+
+                'attributes' => [],
+                'skwirrel' => $productData,
+                'parent_id' => $isPartOfConfigurable ? $productData['product_id'] : 0
+            ];
+
+            foreach ($features as $code => $feature) {
+                $attributeCode = strtolower($code);
+                $data['attributes'][$attributeCode] = $this->parseProductFeatureValue($feature);
             }
+
+            foreach ($this->brandImporter->getConvertedData() as $brand) {
+                if ($productData['brand_id'] == $brand->brand_id) {
+                    $data['attributes'][$this->brandImporter->getAttributeCode()] = $brand->brand_name;
+                }
+            }
+
+            foreach ($this->manufacturerImporter->getConvertedData() as $item) {
+                if ($productData['manufacturer_id'] == $item->manufacturer_id) {
+                    $data['attributes'][$this->manufacturerImporter->getAttributeCode()] = $item->manufacturer_name;
+                }
+            }
+
+            $tradeItemAttributeCode = $this->mapping->getAttributeCodeForTradeItemUnit($tradeItem['use_unit_uom']);
+            $data['attributes'][$tradeItemAttributeCode] = $tradeItem['quantity_of_use_units'] . ' ' . $tradeItem['use_unit_uom'];
+
+            $data['attributes']['short_description'] = $this->getProductTranslation($productData,'product_description');
+            $data['attributes']['description'] = $this->getProductTranslation($productData,'product_long_description');
+            $data['attributes']['meta_description'] = $this->getProductTranslation($productData,'product_marketing_text');
+
+            $data['skwirrel']['configurable_attribute_code'] = $tradeItemAttributeCode;
+            $data['skwirrel']['name'] = $name;
+            $products[] = $data;
+
         }
 
-        return $data;
+        return $products;
     }
 
 
@@ -151,11 +189,10 @@ class Product extends AbstractConverter
                         0 => $trans['etim_value_description']
                     ];
 
-                    foreach($this->mapping->getWebsites() as $website){
-                        foreach($website['storeviews'] as $storeview){
+                    foreach ($this->mapping->getWebsites() as $website) {
+                        foreach ($website['storeviews'] as $storeview) {
                             $locale = $storeview['locale'];
-                            if(isset($feature['_etim_value_translations'][$locale]))
-                            {
+                            if (isset($feature['_etim_value_translations'][$locale])) {
                                 $values[$storeview['storeviewid']] = $feature['_etim_value_translations'][$locale]['etim_value_description'];
                             }
                         }
@@ -187,14 +224,54 @@ class Product extends AbstractConverter
 
     }
 
-    private function parseProductPrice($productData)
+    private function parseTradeItemPrice($tradeItem)
     {
-        $tradeItems = array_values($productData['_trade_items']);
-        foreach ($tradeItems as $tradeItem) {
-            foreach ($tradeItem['_trade_item_prices'] as $price) {
-                return $price['gross_price'];
+        $units = (int)$tradeItem['quantity_of_use_units'];
+
+        foreach ($tradeItem['_trade_item_prices'] as $price) {
+            $priceBase = (int)$price['price_base'];
+            if ($priceBase == 0) {
+                $priceBase = 1;
             }
+            return ($units / $priceBase) * $price['gross_price'];
         }
         return 0;
+    }
+
+    private function getSkuFromTradeItem($tradeItem)
+    {
+        foreach ([$tradeItem['supplier_trade_item_code'], $tradeItem['supplier_trade_item_code'], 'product_' . $tradeItem['trade_item_id']] as $value) {
+            if (trim($value) != '') {
+                return trim($value);
+            }
+        }
+        return '';
+    }
+
+
+    private function getProductTranslation($productData, $key)
+    {
+        $translations = array_values($productData['_product_translations']);
+        $languages = $this->mapping->getLanguages();
+        foreach($translations as $translation){
+            if(in_array($translation['language'], $languages)){
+                return $translation[$key];
+            }
+        }
+        return '';
+
+    }
+
+    private function getProductName($productData, $tradeItem)
+    {
+        $languageCode = $this->mapping->getDefaultLanguage();
+        $tradeItemTranslations = isset($tradeItem['_trade_item_translations']) ? $tradeItem['_trade_item_translations'] : [];
+        if(count($tradeItemTranslations)){
+            $translation = isset($tradeItemTranslations[$languageCode]) ? $tradeItemTranslations[$languageCode] : array_shift($tradeItemTranslations);
+            return $translation['trade_item_description'];
+        }
+
+        return $this->getProductTranslation($productData,'product_description');
+
     }
 }

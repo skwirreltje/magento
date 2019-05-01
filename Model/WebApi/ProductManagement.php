@@ -48,15 +48,18 @@ class ProductManagement implements ProductManagementInterface
     public function postChanges($jsonrpc, $method, $params)
     {
         $productParams = $params->getProduct();
-        foreach ($productParams['change'] as $changedId) {
+        $changed = isset($productParams['change']) ? $productParams['change'] : [];
+        foreach ($changed as $changedId) {
             $this->handleChange($changedId);
         }
 
-        foreach ($productParams['create'] as $createdId) {
+        $created = isset($productParams['create']) ? $productParams['create'] : [];
+        foreach ($created as $createdId) {
             $this->handleChange($createdId);
         }
 
-        foreach ($productParams['delete'] as $deleteId) {
+        $deleted = isset($productParams['delete']) ? $productParams['delete'] : [];
+        foreach ($deleted as $deleteId) {
             $this->handleDelete($deleteId);
         }
     }
@@ -66,21 +69,27 @@ class ProductManagement implements ProductManagementInterface
         try {
             $response = $this->apiClient->makeRequest('getProductsByID', [
                 'product_id' => [$changedId],
-                'include_trade_items' => true,
-                'include_trade_item_prices' => true,
-                'include_etim' => true,
                 'include_categories' => true,
                 'include_attachments' => true,
+                'include_trade_items' => true,
+                'include_trade_item_prices' => true,
+                'include_trade_item_translations' => true,
+                'include_etim' => true,
+                'include_related_products' => false,
+                'include_product_translations' => true,
                 'include_languages' => ['en', 'nl']
             ]);
 
             $products = (array)$response->products;
             foreach ($products as $id => $product) {
+
                 $this->importer->import($product);
             }
 
         } catch (\Exception $e) {
 
+            print_r('error : '.$e->getMessage().' - '.$e->getFile().' - '.$e->getLine()) ;
+            print_r($e->getTraceAsString()) ;
         }
 
 

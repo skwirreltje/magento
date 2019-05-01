@@ -14,8 +14,8 @@ class SelectType extends AbstractType
 
     protected $frontend = 'select';
     protected $type  = 'int';
+    protected $isConfigurable = true;
     protected $global = \Magento\Catalog\Model\ResourceModel\Eav\Attribute::SCOPE_GLOBAL;
     protected $source = \Magento\Eav\Model\Entity\Attribute\Source\Table::class;
-    protected $isConfigurable = true;
 
 }

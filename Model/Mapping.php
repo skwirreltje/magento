@@ -18,6 +18,7 @@ class Mapping implements MappingInterface
     const GROUP_NAME_GENERAL = 'general';
     const SYSTEM_LANGUAGE_CODE = 'en' ;
     const ATTACHMENT_TYPE_IMAGE = 'PPI';
+    const ORDER_UNIT_ATTRIBUTE_PREFIX = 'order_unit_';
 
     /**
      * @var $importMapping Config
@@ -115,7 +116,10 @@ class Mapping implements MappingInterface
         }
 
         return $this->processes;
+    }
 
+    public function getSkwirrelId($id, $entityType){
+        return $entityType.'_'.$id;
     }
 
     /**
@@ -134,6 +138,7 @@ class Mapping implements MappingInterface
     public function load()
     {
         $mappingFile = $this->helper->getMappingFilepath();
+        print_r(['mapping file' => $mappingFile]);
         $mappingFileXml = new Config($mappingFile);
         $this->importMapping = $mappingFileXml;
     }
@@ -265,6 +270,9 @@ class Mapping implements MappingInterface
     }
 
 
+    public function getAttributeCodeForTradeItemUnit($unit){
+        return strtolower(self::ORDER_UNIT_ATTRIBUTE_PREFIX.$unit);
+    }
 
     public function getAttributes()
     {

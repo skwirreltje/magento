@@ -69,7 +69,7 @@ class Attribute implements ConverterInterface
     }
 
     /**
-     * This function converts the inRiver data to Magento 2 ready data and i run
+     * This function converts the Skwirrel data to Magento 2 ready data and i run
      * from the construct by default. Should be an array of entities's data.
      * Entity data structure depends on its corresponding import model.
      *
@@ -89,7 +89,7 @@ class Attribute implements ConverterInterface
             if ($entity->getAttribute('skuField') != '') {
                 $attribute = $this->typeFactory->create('String');
                 $attribute->setEntityType($entityType)
-                    ->setInriverName($entity->getAttribute('skuField'))
+                    ->setSkwirrelName($entity->getAttribute('skuField'))
                     ->setMagentoName('sku');
 
                 $this->convertedData[] = $attribute;
@@ -120,9 +120,10 @@ class Attribute implements ConverterInterface
             'source_code' => (string)$attributes['source_code'],
             'data_type' => (string)$attributes['data_type'],
             'is_global' => isset($attributes['is_global']) ? (string)$attributes['is_global'] : 0,
-            'used_in_listing' => isset($attributes['used_in_listing']) ? (string)$attributes['used_in_listing'] : 0,
+            'used_in_product_listing' => isset($attributes['used_in_listing']) ? (string)$attributes['used_in_listing'] : 0,
             'visible_on_front' => isset($attributes['visible_on_front']) ? (string)$attributes['visible_on_front'] : 0,
-
+            'filterable' => isset($attributes['filterable']) ? (string)$attributes['filterable'] : 0,
+            'searchable' => isset($attributes['searchable']) ? (string)$attributes['searchable'] : 0,
         ];
 
         $attribute = $this->typeFactory->create($attributeData['data_type']);

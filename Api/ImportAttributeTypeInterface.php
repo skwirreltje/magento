@@ -11,7 +11,7 @@ use Magento\Framework\Simplexml\Element;
 interface ImportAttributeTypeInterface
 {
     /**
-     * Handle inRiver data and parse it into Magento data of attribute type,
+     * Handle Skwirrel data and parse it into Magento data of attribute type,
      * return can be a single value or array of storeview specific data in
      * following format:
      *
@@ -23,7 +23,7 @@ interface ImportAttributeTypeInterface
     public function parse(Element $data);
 
     /**
-     * Parse inRiver data into Magento data of attribute type, return a single
+     * Parse Skwirrel data into Magento data of attribute type, return a single
      * value of given locale code
      *
      * @param mixed $data

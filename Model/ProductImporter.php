@@ -1,6 +1,7 @@
 <?php
 namespace Skwirrel\Pim\Model;
 
+use Magento\Catalog\Model\Product\Visibility;
 use Skwirrel\Pim\Model\Extractor\AttributeValues;
 use Skwirrel\Pim\Model\Extractor\ProductPrice;
 
@@ -56,6 +57,18 @@ class ProductImporter
      * @var \Magento\Catalog\Model\ResourceModel\Category\CollectionFactory
      */
     private $categoryCollectionFactory;
+    /**
+     * @var \Skwirrel\Pim\Model\Converter\Product
+     */
+    private $productConverter;
+    /**
+     * @var \Magento\ConfigurableProduct\Model\Product\Type\ConfigurableFactory
+     */
+    private $configurableFactory;
+    /**
+     * @var \Skwirrel\Pim\Model\ConfigurableBuilderFactory
+     */
+    private $configurableBuilderFactory;
 
 
     /**
@@ -82,7 +95,11 @@ class ProductImporter
         \Magento\Catalog\Model\Product\Gallery\Processor $galleryProcessor,
         \Magento\Eav\Setup\EavSetupFactory $eavSetupFactory,
         \Magento\Setup\Module\DataSetup $dataSetup,
-        \Magento\Catalog\Model\ResourceModel\Category\CollectionFactory $categoryCollectionFactory
+        \Magento\Catalog\Model\ResourceModel\Category\CollectionFactory $categoryCollectionFactory,
+        \Skwirrel\Pim\Model\Converter\Product $productConverter,
+        \Magento\ConfigurableProduct\Model\Product\Type\ConfigurableFactory $configurableFactory,
+        \Skwirrel\Pim\Model\ConfigurableBuilderFactory $configurableBuilderFactory
+
 
     ) {
 
@@ -101,41 +118,222 @@ class ProductImporter
 
         $mapping->load();
         $this->categoryCollectionFactory = $categoryCollectionFactory;
+        $this->productConverter = $productConverter;
+        $this->configurableFactory = $configurableFactory;
+        $this->configurableBuilderFactory = $configurableBuilderFactory;
     }
 
     public function import($productData)
     {
+        $attributes = $this->mapping->getAttributes();
+        $attributeMap = [];
+
+        foreach ($attributes as $attribute) {
+            $attributeMap[$attribute->getSourceName()] = $attribute->getMagentoName();
+        }
+
+        $productData = json_decode(json_encode($productData), true);
 
         $this->productData = $productData;
 
-        $skwirrelId = $productData->product_id;
-        $magentoProduct = $this->findMagentoProductBySkwirrelId($skwirrelId);
-        $attributeValues = $this->attributeValuesExtractor->extract($productData);
+        $convertedData = $this->productConverter->convertProduct($productData);
 
-        $images = $this->resolveProductImages($productData);
+        $createdProducts = [];
 
-        if ($magentoProduct) {
+        $isConfigurable = false;
+        foreach($convertedData as $item){
+            if($item['parent_id'] != 0){
+                $isConfigurable = true;
+            }
         }
 
-        if (!$magentoProduct) {
-            $magentoProduct = $this->createProduct($productData);
+        $configurableProductId = false;
+        if($isConfigurable){
+            foreach($convertedData as $item){
+                $skwirrelId = $item['skwirrel_id'];
+                $magentoProduct = $this->findMagentoProductBySkwirrelId($skwirrelId);
+                if($magentoProduct)
+                {
+                    // get configurable product by child id
+                    $configurableProductIds = $this->configurableFactory->create()->getParentIdsByChild($magentoProduct->getId());
+                    if(count($configurableProductIds) > 0){
+                        $configurableProductId = $configurableProductIds[0];
+                        break;
+                    }
+                }
+
+            }
+        }
+
+        $configurableProductData = [];
+
+        $parentId = false;
+        foreach($convertedData as $item){
+
+            $skwirrelId = $item['skwirrel_id'];
+
+            if($item['parent_id'] != 0){
+
+                $parentId = $item['parent_id'];
+
+                if(!isset($configurableProductData[$parentId]))
+                {
+                    $configurableProductData[$item['parent_id']] = [
+                        'data' => $item['skwirrel'],
+                        'simples' => [],
+                        'attribute_set_id' => '',
+                        'category_ids' => $this->resolveCategoryIds($item['skwirrel']),
+                        'description' => $item['attributes']['description'],
+                        'short_description' => $item['attributes']['short_description'],
+                    ];
+
+                    $attributeSet = $this->getAttributeSet($productData);
+                    $attributeSetId = 4;
+
+                    if ($attributeSet) {
+                        $attributeSetId = $attributeSet->getId();
+                    }
+                    $configurableProductData[$parentId]['attribute_set_id'] = $attributeSetId;
+
+
+                }
+                $configurableProductData[$parentId]['simples'][$skwirrelId] = $item['sku'];
+
+            }
+
+            $magentoProduct = $this->findMagentoProductBySkwirrelId($skwirrelId);
+
+            if(!$magentoProduct){
+                $magentoProduct = $this->createProduct($item);
+                $createdProducts[] = $createdProducts;
+            }
+
+            if($magentoProduct){
+
+                $attributeData = [];
+                foreach($item['attributes'] as $key => $attributeValue){
+                    $magentoAttributeName = $key;
+                    if (isset($attributeMap[$key])) {
+                        $magentoAttributeName = $attributeMap[$key];
+                    }
+
+                    $attributeData[$magentoAttributeName] = $this->findProductAttributeValue($magentoAttributeName, $attributeValue);
+
+                }
+                foreach($attributeData as $attributeCode => $attributeValue){
+                    $magentoProduct->setData($attributeCode, $attributeValue);
+                }
+
+                if(!$isConfigurable){
+                    $images = $this->resolveProductImages($item['skwirrel']);
+                    $this->handleProductImages($magentoProduct, $images);
+
+                }
+
+                $magentoProduct->save();
+            }
 
         }
 
-        $attributeData = $this->resolveAttributeData($magentoProduct, $attributeValues);
+        if($isConfigurable){
 
-        foreach ($attributeData as $key => $value) {
-            $magentoProduct->setData($key, $value);
+            foreach ($configurableProductData as $configurableId => $configurable) {
+
+                if (!$configurableProductId) {
+                    $configurableProductInstance = [
+                        'sku' => 'skwirrel_product_'.$configurable['data']['product_id'],
+                        'attribute_set_id' => $configurable['attribute_set_id'],
+                        'name' => $configurable['data']['name'],
+                        'category_ids' => $configurable['category_ids'],
+                        'description' => $configurable['description'],
+                        'short_description' => $configurable['short_description'],
+                        'stock_data' => [
+                            'use_config_manage_stock' => 1,
+                            'manage_stock' => 1,
+                            'is_in_stock' => 1,
+                            'qty' => 100
+                        ],
+                    ];
+                } else {
+                    $configurableProductInstance = $this->productFactory->create()->load($configurableProductId);
+                    $configurableProductInstance->setTypeId('configurable');
+                }
+
+
+                /**
+                 * @var $builder \Skwirrel\Pim\Model\ConfigurableBuilder
+                 */
+                $builder = $this->configurableBuilderFactory->create();
+
+                $builder->setConfigurableAttributeCodes([$configurable['data']['configurable_attribute_code']]);
+                $configurableSkuParts = [];
+
+                foreach ($configurable['simples'] as $simpleId => $simpleSku) {
+                    $configurableSkuParts[] = trim($simpleSku);
+                    $builder->addSimpleProductBySku($simpleSku);
+                }
+
+
+
+                $configurableProduct = $builder->build($configurableProductInstance);
+                $configurableProduct->setVisibility(Visibility::VISIBILITY_BOTH);
+
+                $images = $this->resolveProductImages($configurable['data']);
+
+                $this->handleProductImages($configurableProduct, $images);
+
+                $configurableProduct->save();
+            }
+
         }
 
-        $magentoProduct->setPrice($this->productPriceExtractor->extract($productData));
 
-        $this->handleProductImages($magentoProduct, $images);
+    }
 
-        $magentoProduct->setCategoryIds($this->resolveCategoryIds($productData));
+    private function findProductAttributeValue($magentoAttributeName, $attributeValue, $retry = false)
+    {
+        try {
+            $attribute = $this->attributeRepository->get($magentoAttributeName);
+            if (!$attribute) {
+                return $attributeValue;
+            }
 
-        $magentoProduct->save();
+            if ($attribute->getBackendType() == 'int' && $attribute->getFrontendInput() == 'select') {
 
+                if (is_array($attributeValue)) {
+                    $optionValue = $attributeValue[0];
+                } else {
+                    $optionValue = $attributeValue;
+                }
+
+                $options = $attribute->getOptions();
+                foreach ($options as $option) {
+                    if ($option->getLabel() == $optionValue) {
+                        return $option->getValue();
+                    }
+                }
+
+                if (trim($optionValue) != '' && !$retry) {
+                    $newOptions = [
+                        'option' => [
+                            'value' => [
+                                'option_0' => $attributeValue
+
+                            ]
+                        ]
+                    ];
+
+                    $attribute->addData($newOptions);
+                    $attribute->save();
+                    return $this->findProductAttributeValue($magentoAttributeName, $attributeValue, true);
+
+                }
+
+            }
+
+        } catch (\Exception $e) {
+        }
+        return $attributeValue;
     }
 
     protected function handleProductImages($product, $images)
@@ -143,12 +341,13 @@ class ProductImporter
         $existingGalleryImages = [];
         $imagesToKeep = [];
 
+        $productModel = $this->productRepository->getById($product->getId());
 
-        if (!$product->hasGalleryAttribute()) {
-            $product->setMediaGallery(['images' => [], 'values' => []]);
+        if (!$productModel->hasGalleryAttribute()) {
+            $productModel->setMediaGallery(['images' => [], 'values' => []]);
         }
 
-        $entries = $product->getMediaGalleryEntries() ;
+        $entries = $productModel->getMediaGalleryImages() ;
         if($entries){
             foreach ($entries as $entry) {
                 $imageId = md5(basename($entry->getFile()));
@@ -162,7 +361,7 @@ class ProductImporter
             $imageId = md5(basename($this->helper->createImageImportFile($image, false)));
             if (!isset($existingGalleryImages[$imageId])) {
                 $importFilename = $this->helper->createImageImportFile($image, true);
-                $this->galleryProcessor->addImage($product, $importFilename, ['image', 'small_image', 'thumbnail'], true, false);
+                $this->galleryProcessor->addImage($productModel, $importFilename, ['image', 'small_image', 'thumbnail'], true, false);
                 $imagesToKeep[$imageId] = $imageId;
 
             } else {
@@ -172,7 +371,7 @@ class ProductImporter
 
         foreach ($existingGalleryImages as $imageId => $existingGalleryImage) {
             if (!isset($imagesToKeep[$imageId])) {
-                $this->galleryProcessor->removeImage($product, $existingGalleryImage);
+                $this->galleryProcessor->removeImage($productModel, $existingGalleryImage);
             }
         }
 
@@ -180,15 +379,15 @@ class ProductImporter
 
     protected function resolveProductImages($productData)
     {
-        $attachments = isset($productData->_attachments) ? (array)$productData->_attachments : [];
+        $attachments = isset($productData['_attachments']) ? (array)$productData['_attachments'] : [];
         $images = [];
         foreach ($attachments as $attachment) {
 
-            if ($attachment->product_attachment_type_code !== Mapping::ATTACHMENT_TYPE_IMAGE) {
+            if ($attachment['product_attachment_type_code'] !== Mapping::ATTACHMENT_TYPE_IMAGE) {
                 continue;
             }
 
-            $filename = $this->storeAttachmentImage($productData->product_id, $attachment->source_url);
+            $filename = $this->storeAttachmentImage($productData['product_id'], $attachment['source_url']);
             if ($filename) {
                 $images[] = $filename;
             }
@@ -251,8 +450,14 @@ class ProductImporter
         return $map;
     }
 
-    private function createProduct($productData)
+    private function createProduct($item)
     {
+
+        $productData = $item;
+        unset($productData['parent_id']);
+        unset($productData['skwirrel']);
+        unset($productData['attributes']);
+
         $attributeSet = $this->getAttributeSet($productData);
         $attributeSetId = 4;
 
@@ -263,13 +468,18 @@ class ProductImporter
 
         $product = $this->productFactory->create();
         $product->setAttributeSetId($attributeSetId);
-        $product->setData(Mapping::SKWIRREL_ID_ATTRIBUTE_CODE, $productData->product_id);
 
-        $product->setSku($this->resolveProductSku($productData));
-        $product->setName($this->resolveProductName($productData));
+        $product->setData(Mapping::SKWIRREL_ID_ATTRIBUTE_CODE, $productData['skwirrel_id']);
+
+        $product->setSku($productData['sku']);
+        $product->setName($productData['name']);
 
         foreach($this->getDefaultProductData() as $key => $value){
             $product->setData($key, $value);
+        }
+
+        if($item['parent_id'] !== 0){
+            $product->setData('visibility',1);
         }
 
         return $this->productRepository->save($product);
@@ -277,16 +487,16 @@ class ProductImporter
 
     private function getAttributeSet($productData)
     {
-        $classCode = $productData->_etim->etim_class_code;
+        $classCode = $productData['_etim']['etim_class_code'];
         $attributeSetName = $this->resolveAttributeSetName($classCode);
         if (!$attributeSetName) {
-            $translations = (array)$productData->_etim->_etim_class_translations;
+            $translations = (array)$productData['_etim']['_etim_class_translations'];
 
             if (isset($translations[Mapping::SYSTEM_LANGUAGE_CODE])) {
-                $attributeSetName = $translations[Mapping::SYSTEM_LANGUAGE_CODE]->etim_class_description;
+                $attributeSetName = $translations[Mapping::SYSTEM_LANGUAGE_CODE]['etim_class_description'];
             } else {
                 $translation = array_shift($translations);
-                $attributeSetName = $translation->etim_class_description;
+                $attributeSetName = $translation['etim_class_description'];
             }
         }
 
@@ -383,10 +593,10 @@ class ProductImporter
 
     private function resolveCategoryIds($productData)
     {
-        $categories = isset($productData->_categories) ? (array) $productData->_categories : [];
+        $categories = isset($productData['_categories']) ? (array) $productData['_categories'] : [];
         $ids = [];
         foreach($categories as $category){
-            if($id = $this->resolveCategoryId($category->product_category_id)){
+            if($id = $this->resolveCategoryId($category['product_category_id'])){
                 $ids[] = $id;
             }
         }

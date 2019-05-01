@@ -46,9 +46,7 @@ class Category extends AbstractImport
             $rootCategoryId = $this->rootCategoryId;
             $this->walkTree($rootCategory, '1/' . $rootCategoryId, $rootCategoryId);
         }
-        $websites = $this->mapping->getWebsites();
-
-
+        $this->progress->barFinish('category');
 
     }
 
@@ -90,9 +88,6 @@ class Category extends AbstractImport
                 ->setData($categoryData)
                 ->setPath($path)
                 ->setAttributeSetId($category->getDefaultAttributeSetId());
-
-
-
 
             $category->save();
             $parentId = $category->getId();

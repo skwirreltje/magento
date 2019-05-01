@@ -4,10 +4,10 @@ namespace Skwirrel\Pim\Model\Converter;
 use Skwirrel\Pim\Api\ConverterInterface;
 use Skwirrel\Pim\Model\Mapping;
 
-class Brand implements ConverterInterface
+class Manufacturer implements ConverterInterface
 {
 
-    const PROCESS_NAME = 'Brand';
+    const PROCESS_NAME = 'Manufacturer';
 
     protected $configPath;
     /**
@@ -43,7 +43,6 @@ class Brand implements ConverterInterface
         \Skwirrel\Pim\Console\Progress $progress,
         \Skwirrel\Pim\Helper\Data $helper,
         \Skwirrel\Pim\Client\ApiClient $apiClient
-
 
     )
     {
@@ -84,22 +83,26 @@ class Brand implements ConverterInterface
      */
     public function convertData()
     {
-        $this->loadBrands();
+        $this->loadItems();
+
     }
 
-    protected function loadBrands(){
 
-        $response = $this->apiClient->makeRequest('getBrands');
+    protected function loadItems(){
 
-        if (isset($response->brands)) {
-            $count = count((array) $response->brands);
-            $this->convertedData = $this->parseBrands($response->brands);
+
+        $response = $this->apiClient->makeRequest('getManufacturers');
+
+        if (isset($response->manufacturers)) {
+
+            $count = count((array) $response->manufacturers);
+            $this->convertedData = $this->parseItems($response->manufacturers);
         }
 
     }
 
-    function parseBrands($brands){
-        return (array) $brands;
+    function parseItems($items){
+        return (array) $items;
     }
 
 

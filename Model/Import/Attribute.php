@@ -13,6 +13,7 @@ class Attribute extends AbstractImport
 
     protected $existingAttributes = [];
 
+
     /**
      * @var \Magento\Catalog\Model\ResourceModel\Product\Attribute\Collection
      */
@@ -25,7 +26,6 @@ class Attribute extends AbstractImport
      * @var \Magento\Framework\Filesystem\Directory\ReadFactory
      */
     private $directoryReadFactory;
-
 
     protected $parsedProductData = [];
     protected $attributeCodeIndex = [];
@@ -79,6 +79,7 @@ class Attribute extends AbstractImport
         $websites = $this->mapping->getWebsites();
         $mappedAttributes = $this->getConvertedData();
 
+
         $parsedAttributes = $this->getConvertedProductData();
 
         $mapped = [];
@@ -91,6 +92,7 @@ class Attribute extends AbstractImport
                 $mapped[$sourceName] = $sourceName;
             }
         }
+
 
         $process = $this->getProcess();
         $createIfNotMapped = isset($process['options']['create_unmapped']) ? (bool)$process['options']['create_unmapped'] : true;
@@ -128,11 +130,15 @@ class Attribute extends AbstractImport
 
             if (!isset($existingAttributes[$attributeCode])) {
 
+
                 $data = $attribute;
                 unset($data['pim_data']);
 
                 $data['label'] = $labelTranslations[0];
 
+                if($data['filterable'] == '1' && $data['input'] == 'select'){
+                    $data['filterable'] = 2;
+                }
 
                 if ($data['is_unique'] == 1) {
                     $data['unique'] = 1;
@@ -149,16 +155,17 @@ class Attribute extends AbstractImport
             } else {
 
                 $magentoAttribute = $attributeCollection->getItemById($existingAttributes[$attributeCode]['id']);
+
                 if ($magentoAttribute) {
                     $magentoAttribute->addData([
                         'frontend_label' => $labelTranslations
                     ]);
 
                     if ($attribute['pim_data']['has_options']) {
-                        $optionsData = $magentoAttribute->getSource()->getAllOptions();
+                        $optionsData = $magentoAttribute->setStoreId(0)->getSource()->getAllOptions(false);
                         $existingOptions = [];
                         foreach ($optionsData as $option) {
-                            $existingOptions[] = $option['label'];
+                            $existingOptions[$option['value']] = $option['label'];
                         }
 
                         $addOptions = [];
@@ -167,6 +174,10 @@ class Attribute extends AbstractImport
                         foreach ($options['option']['value'] as $key => $values) {
                             if (!in_array($values[0], $existingOptions)) {
                                 $addOptions[$key] = $values;
+                            }
+                            else{
+                                $idKey = array_search($values[0], $existingOptions);
+                                $addOptions[$idKey] = $values;
                             }
                         }
                         if (count($addOptions)) {
@@ -278,6 +289,7 @@ class Attribute extends AbstractImport
 
     private function convertProduct($productData)
     {
+
         $features = $productData['_etim']['_etim_features'];
         $classId = $productData['_etim']['etim_class_code'];
         foreach ($features as $code => $feature) {
@@ -299,6 +311,58 @@ class Attribute extends AbstractImport
                     }
                 }
             }
+        }
+
+        // parse trade items into configurable attributes
+        $this->convertProductTradeItems($productData);
+
+
+    }
+
+    private function convertProductTradeItems($productData)
+    {
+        $tradeItems = $productData['_trade_items'];
+        foreach($tradeItems as $tradeItem){
+            $attributeCode = $this->mapping->getAttributeCodeForTradeItemUnit($tradeItem['use_unit_uom']);
+
+            if(!isset($this->parsedProductData[$attributeCode])){
+                $this->parsedProductData[$attributeCode] = [
+                    'input' => 'select',
+                    'type' => 'int',
+                    'label' => 'Order unit',
+                    'is_global' => 1,
+                    'class' => '',
+                    'backend' => '',
+                    'source' => '',
+                    'visible' => true,
+                    'required' => false,
+                    'searchable' => false,
+                    'filterable' => false,
+                    'comparable' => false,
+                    'user_defined' => true,
+                    'is_user_defined' => true,
+                    'visible_on_front' => false,
+                    'used_in_product_listing' => false,
+                    'is_unique' => false,
+
+                    'pim_data' => [
+                        'feature_code' => $attributeCode,
+                        'magento_name' => $attributeCode,
+                        'has_options' => true,
+
+                        'value_labels' => [],
+                        'options' => [],
+                        'labels' => [0 => 'Order unit']
+                    ]
+                ];
+            }
+
+            $valueCode = strtolower($tradeItem['quantity_of_use_units'].'_'.$tradeItem['use_unit_uom']);
+            $values = [];
+            foreach($this->mapping->getLanguages() as $language){
+                $values[$language] = $tradeItem['quantity_of_use_units'].' '.$tradeItem['use_unit_uom'];
+            }
+            $this->parsedProductData[$attributeCode]['pim_data']['options'][$valueCode] = $values;
         }
     }
 
@@ -376,6 +440,7 @@ class Attribute extends AbstractImport
 
         return $config;
     }
+
 
 
 }
