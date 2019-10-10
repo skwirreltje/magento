@@ -28,7 +28,7 @@
         </AttributeSet>
         <Category>
             <options>
-                <super_category_id>2</super_category_id>
+                <super_category_id>4</super_category_id>
             </options>
         </Category>
         <Product>
@@ -48,7 +48,8 @@
             <attribute source_code="ef000007" target_code="item_color" is_global="1"  used_in_listing="1" data_type="select" visible_on_front="1" filterable="1" is_configurable="1"/>
             <attribute source_code="brand_id" target_code="brand" is_global="1"  used_in_listing="1"  data_type="select" visible_on_front="1" filterable="1" searchable="1"/>
             <attribute source_code="order_unit_mtr" target_code="order_unit_mtr" is_global="1" data_type="select" is_configurable="1" />
-            <attribute source_code="order_unit_mtr" target_code="order_unit_mtr" is_global="1" data_type="select" is_configurable="1" />
+            <attribute source_code="order_unit_pce" target_code="order_unit_pce" is_global="1" data_type="select" is_configurable="1" />
+            <attribute source_code="attachments" target_code="attachments" is_global="1" data_type="text"   visible_on_front="0"  />
         </Product>
     </entities>
     <websites>

@@ -86,15 +86,29 @@ class DownloadProducts extends Command
         $this->progress->info('Downloading products');
         $currentPage = 1;
         $continue = true;
+        $numProducts = false;
+        $numPages  = false;
         while ($continue) {
             $response = $this->getProductsForPage($currentPage);
             if($currentPage == 1){
-                $numProducts = $response->page->total_products;
-                $this->progress->barStart('product', $numProducts);
+
+                if(isset($response->page->number_of_pages)){
+                    $numPages = $response->page->number_of_pages;
+                }
+                
+                if(isset($response->page->total_products)){
+
+                    $numProducts = $response->page->total_products;
+                    $this->progress->barStart('product', $numProducts);
+                }
             }
 
-            $numpages = $response->page->number_of_pages;
             if (isset($response->products)) {
+                $this->progress->info('num products for page '.count($response->products));
+
+                if(count($response->products) == 0){
+                    $continue = false;
+                }
 
                 foreach ($response->products as $product) {
 
@@ -106,14 +120,18 @@ class DownloadProducts extends Command
                     else{
                         print_r($product);
                     }
-                    $this->progress->barAdvance('product');
+
+                    if($numProducts){
+                        $this->progress->barAdvance('product');
+                    }
                 }
             }
             else{
                 $this->progress->info('Error while downloading products');
                 $continue = false;
             }
-            if ($currentPage >= $numpages) {
+
+            if ($numPages && $currentPage >= $numPages) {
                 $continue = false;
             }
             $currentPage += 1;
@@ -129,6 +147,7 @@ class DownloadProducts extends Command
             'dynamic_selection_id' => $selectionId,
             'page' => $pageNumber,
             'include_categories' => true,
+            'include_custom_class' => true,
             'include_attachments' => true,
             'include_trade_items' => true,
             'include_trade_item_prices' => true,

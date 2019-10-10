@@ -75,12 +75,17 @@ class ConfigurableBuilder
     public function build($configurableProduct)
     {
 
+        $productSku  = false;
         if (is_array($configurableProduct)) {
 
-                $configurableProduct = $this->findOrCreateConfigurableProduct($configurableProduct);
+            $productSku = isset($configurableProduct['sku']) ? $configurableProduct['sku'] :false;
+            $configurableProduct = $this->findOrCreateConfigurableProduct($configurableProduct);
         }
 
+
         $attributeData = $this->buildAttributeData();
+        $configurableProduct->setTypeId("configurable");
+
         $configurableProduct->getTypeInstance()->setUsedProductAttributeIds($this->configurableAttributeIds, $configurableProduct);
 
         $configurableAttributesData = $configurableProduct->getTypeInstance()->getConfigurableAttributesAsArray($configurableProduct);
@@ -105,11 +110,17 @@ class ConfigurableBuilder
         }
 
 
+        if ($productSku && $configurableProduct->getSku() !== $productSku) {
+            $configurableProduct->setSku($productSku);
+        }
+
         $configurableProduct->setConfigurableProductsData($configurableProductsData);
-        $configurableProduct = $this->productRepository->save($configurableProduct);
+        $configurableProduct->save();
         $configurableProduct->setAssociatedProductIds(array_keys($configurableProductsData)); // Assign simple product id
         $configurableProduct->setCanSaveConfigurableAttributes(true);
-        return $this->productRepository->save($configurableProduct);
+        $configurableProduct->save();
+
+        return $configurableProduct;
 
     }
 
@@ -138,18 +149,18 @@ class ConfigurableBuilder
 
     private function findOrCreateConfigurableProduct($configurableProduct)
     {
-        if(isset($configurableProduct['skwirrel_id']) && !empty($configurableProduct['skwirrel_id'])){
-            if($existingProduct = $this->getExistingProductBySkwirrelId($configurableProduct['skwirrel_id'])){
+        if (isset($configurableProduct['skwirrel_id']) && !empty($configurableProduct['skwirrel_id'])) {
+            if ($existingProduct = $this->getExistingProductBySkwirrelId($configurableProduct['skwirrel_id'])) {
                 return $existingProduct;
             }
         }
-        if($existingProduct = $this->getExistingProductBySku($configurableProduct['sku'])){
-            print_r('found product by sku:'.$configurableProduct['sku']);
+        if ($existingProduct = $this->getExistingProductBySku($configurableProduct['sku'])) {
+            print_r('found product by sku:' . $configurableProduct['sku']);
             return $existingProduct;
         }
 
         $data = [
-            'sku' => '',
+            'sku' => $configurableProduct['sku'],
             'name' => '',
             'website_ids' => [1],
             'attribute_set_id' => 4,
@@ -169,14 +180,18 @@ class ConfigurableBuilder
         $product = $this->productFactory->create();
         $product->setData($data);
         $newProduct = $this->productRepository->save($product);
-        return $this->productRepository->getById($newProduct->getId());
+
+        $product = $this->productFactory->create();
+        $product->load($newProduct->getId());
+        return $product;
 
     }
 
 
-    private function getExistingProductBySkwirrelId($skwirrelId){
+    private function getExistingProductBySkwirrelId($skwirrelId)
+    {
         $product = $this->productFactory->create();
-        if($existing = $product->loadByAttribute('skwirrel_id', $skwirrelId)){
+        if ($existing = $product->loadByAttribute('skwirrel_id', $skwirrelId)) {
             return $product->load($existing->getId());
         }
         return false;
@@ -186,7 +201,7 @@ class ConfigurableBuilder
     {
         $product = $this->productFactory->create();
         $productId = $product->getIdBySku($sku);
-        if($productId){
+        if ($productId) {
             return $product->load($productId);
         }
         return false;

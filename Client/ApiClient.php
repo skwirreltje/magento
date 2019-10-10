@@ -46,6 +46,7 @@ class ApiClient
         $request = $this->generateRequest($method, $params, $id);
         try{
             $response = $this->getClient()->send($request);
+
             $jsonResponse = json_decode($response->getBody()->getContents());
             if($jsonResponse && isset($jsonResponse->result)){
                 return $jsonResponse->result;
@@ -53,7 +54,7 @@ class ApiClient
 
         }
         catch(\Exception $e){
-
+            print_r($e->getMessage());
         }
     }
 

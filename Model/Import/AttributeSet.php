@@ -128,8 +128,13 @@ class AttributeSet extends AbstractImport
             $attributeSet = $this->processAttributeSet($attributeSetName);
             $currentAttributeSetId = $attributeSet->getId();
 
+            $attributes = $parsedProduct['attributes'] + [
+                    'attachments' => [],
+                    'brand' => [],
+                    'manufacturer' => [],
+                ];
 
-            foreach ($parsedProduct['attributes'] as $attributeCode => $attribute) {
+            foreach ($attributes as $attributeCode => $attribute) {
                 $magentoAttributeCode = $attributeCode;
                 foreach ($mappedAttributes as $mappedAttribute) {
                     $sourceName = $mappedAttribute->getSourceName();
@@ -227,7 +232,8 @@ class AttributeSet extends AbstractImport
             ];
         }
 
-        $features = $productData['_etim']['_etim_features'];
+        $features = $this->convertProductFeatures($productData);
+
         foreach ($features as $code => $feature) {
             $magentoCode = strtolower($code);
             if (!isset($this->parsedProductData[$etimCode]['attributes'][$magentoCode])) {
@@ -242,6 +248,51 @@ class AttributeSet extends AbstractImport
                 $this->parsedProductData[$etimCode]['attributes'][$attributeCode] = [];
             }
         }
+    }
+
+
+    function convertProductFeatures($productData)
+    {
+        $features = $productData['_etim']['_etim_features'];
+        if (isset($productData['_custom_class'])) {
+            $customFeatures = isset($productData['_custom_class']['_custom_features']) ? $productData['_custom_class']['_custom_features'] : [];
+
+            foreach ($customFeatures as $customFeature) {
+                $featureCode = 'custom_' . $customFeature['custom_feature_id'];
+
+                $featureTranslations = [];
+                foreach ($customFeature['_custom_feature_translations'] as $lang => $translation) {
+                    $featureTranslations[$lang] = [
+                        'language' => $lang,
+                        'etim_feature_description' => $translation['custom_feature_description']
+                    ];
+                }
+                $valueTranslations = [];
+                if (isset($customFeature['_custom_value_translations'])) {
+                    foreach ($customFeature['_custom_value_translations'] as $lang => $translation) {
+                        $valueTranslations[$lang] = [
+                            'language' => $lang,
+                            'etim_value_description' => $translation['custom_value_description']
+                        ];
+                    }
+
+                }
+
+                $features[$featureCode] = [
+                    'etim_feature_code' => $featureCode,
+                    'etim_feature_type' => $customFeature['custom_feature_type'],
+                    'etim_value_code' => $customFeature['custom_value_id'],
+                    'numeric_value' => $customFeature['numeric_value'],
+                    'logical_value' => $customFeature['logical_value'],
+                    '_etim_feature_translations' => $featureTranslations,
+                    '_etim_value_translations' => $valueTranslations,
+                ];
+
+
+            }
+
+        }
+        return $features;
     }
 
     /**

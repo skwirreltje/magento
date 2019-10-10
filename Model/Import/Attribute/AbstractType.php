@@ -30,6 +30,8 @@ class AbstractType extends DataObject implements ImportAttributeTypeInterface
     protected $labels = [];
     protected $defaultValue = "";
     protected $isConfigurable = false;
+    protected $isFilterable = false;
+    protected $visibleOnFront = true;
 
     protected $entityType = '';
     protected $magentoName = '';
@@ -52,11 +54,11 @@ class AbstractType extends DataObject implements ImportAttributeTypeInterface
             'visible' => true,
             'required' => false,
             'searchable' => false,
-            'filterable' => false,
+            'filterable' => $this->isFilterable,
             'comparable' => false,
             'user_defined' => true,
             'is_user_defined' => true,
-            'visible_on_front' => false,
+            'visible_on_front' => $this->visibleOnFront,
             'used_in_product_listing' => false,
             'is_unique' => false,
         ]);

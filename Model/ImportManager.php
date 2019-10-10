@@ -59,6 +59,7 @@ class ImportManager
         } catch (\Exception $e) {
             $this->progress->info($e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine());
             $this->logger->error($e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine());
+            $this->logger->error($e->getTraceAsString());
             $this->logger->critical($e);
         } finally {
             $this->logger->info('Import ended');
@@ -82,6 +83,8 @@ class ImportManager
         } catch (\Exception $e) {
             $this->progress->info($e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine());
             $this->logger->error($e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine());
+            $this->logger->error($e->getTraceAsString());
+
             $this->logger->critical($e);
         } finally {
             $this->progress->info('End ' . $process['entity'] . ' process');

@@ -12,4 +12,6 @@ namespace Skwirrel\Pim\Model\Import\Attribute;
 class TextType extends AbstractType
 {
 
+    protected $type = 'text';
+    protected $frontend = 'textarea';
 }

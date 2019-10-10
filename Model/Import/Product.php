@@ -1,7 +1,9 @@
 <?php
+
 namespace Skwirrel\Pim\Model\Import;
 
 use Magento\Catalog\Model\Product\Visibility;
+use Magento\Framework\App\ObjectManager;
 use Skwirrel\Pim\Model\Mapping;
 
 class Product extends AbstractImport
@@ -93,7 +95,13 @@ class Product extends AbstractImport
     {
 
 
-
+        $websites = $this->mapping->getWebsites();
+        $storeIds = [];
+        foreach ($websites as $website) {
+            foreach ($website['storeviews'] as $storeview) {
+                $storeIds[$storeview['storeviewid']] = ['id' => $storeview['storeviewid'], 'locale' => $storeview['locale']];
+            }
+        }
         $existingCategories = $this->getExistingCategories();
         $existingProducts = $this->getExistingProducts();
         $attributes = $this->mapping->getAttributes();
@@ -105,6 +113,7 @@ class Product extends AbstractImport
 
         $data = $this->getConvertedData();
 
+
         $this->progress->info('Starting product import');
         $this->progress->barStart('import_product', count($data));
 
@@ -113,7 +122,10 @@ class Product extends AbstractImport
         foreach ($data as $productData) {
 
             $parentId = false;
+
             $skwirrelProductId = $productData['skwirrel_id'];
+
+
             $skwirrelData = $productData['skwirrel'];
 
             if ($productData['parent_id'] > 0) {
@@ -123,10 +135,13 @@ class Product extends AbstractImport
                     $configurableProducts[$parentId] = [
                         'data' => $productData['skwirrel'],
                         'simples' => [],
+                        'simpleIds' => [],
                         'attribute_set_id' => '',
                         'category_ids' => [],
                         'description' => $productData['attributes']['description'],
                         'short_description' => $productData['attributes']['short_description'],
+                        'attributes' => $productData['attributes'],
+                        'attributeData' => []
 
                     ];
                 }
@@ -141,6 +156,8 @@ class Product extends AbstractImport
             $attributeValues = $productData['attributes'];
             $images = $productData['skwirrel']['attachments'];
 
+            //print_r($images);
+
             unset($productData['skwirrel']);
             unset($productData['attributes']);
             unset($productData['parent_id']);
@@ -154,12 +171,14 @@ class Product extends AbstractImport
                 }
             }
 
+
             if ($parentId) {
                 $configurableProducts[$parentId]['category_ids'] = $productCategoryIds;
                 $configurableProducts[$parentId]['attribute_set_id'] = $attributeSetId;
             }
 
             $attributeData = [];
+            $languageSpecificAttributes = [];
             foreach ($attributeValues as $attributeCode => $attributeValue) {
 
                 $magentoAttributeName = $attributeCode;
@@ -168,93 +187,119 @@ class Product extends AbstractImport
                 }
 
                 $attributeData[$magentoAttributeName] = $this->findProductAttributeValue($magentoAttributeName, $attributeValue);
+                if ($parentId) {
+                    $configurableProducts[$parentId]['attributeData'][$magentoAttributeName] = $attributeData[$magentoAttributeName];
+                }
             }
 
             if (isset($existingProducts[$skwirrelProductId])) {
 
-
-
                 $magentoProductId = $existingProducts[$skwirrelProductId];
-                $product = $this->productFactory->create()->load($magentoProductId);
+                $productModel = $this->productRepository->getById($magentoProductId, true);
 
-                foreach ($attributeData as $key => $value) {
-                    $product->setData($key, $value);
+                $productModel->setPrice($productData['price']);
+
+                if ($parentId) {
+                    $productModel->setVisibility(Visibility::VISIBILITY_NOT_VISIBLE);
+                    $productModel->setName($productData['sku']);
+                    $configurableProducts[$parentId]['simples'][$productModel->getId()] = $productModel->getSku();
+                    $configurableProducts[$parentId]['simpleIds'][] = $productModel->getId();
+
+                } else {
+                    $productModel->setName($productData['name']);
+
+                    foreach ($attributeData as $key => $value) {
+                        if (is_array($value)) {
+                            $languageSpecificAttributes[$key] = $value;
+                            continue;
+                        }
+                        $productModel->setData($key, $value);
+                    }
+
+                    $this->handleProductImages((int)$productModel->getId(), $images, false, true);
+                    //$this->productRepository->save($productModel);
                 }
 
-                $product->setPrice($productData['price']);
+                $this->linkManagement->assignProductToCategories(
+                    $productModel->getSku(),
+                    $productCategoryIds
+                );
 
-                if($parentId){
-                    $product->setVisibility( Visibility::VISIBILITY_NOT_VISIBLE );
-                    $product->setName($productData['sku']);
-                    $this->handleProductImages($product, $images,['thumbnail']);
-                }
-                else{
-                    $product->setName($productData['name']);
-                    $this->handleProductImages($product, $images);
-                }
+                $this->productRepository->save($productModel);
 
-                $product->save();
+                $this->handleLanguageSpecificAttributes($productModel, $languageSpecificAttributes);
+
 
             } else {
 
-                $product = $this->productFactory->create();
+                $productModel = $this->productFactory->create();
+                $productModel->setData($productData);
+                $productModel->setSku($productData['sku']);
 
-                $product->setData($productData);
+                $productModel = $this->productRepository->save($productModel);
+
                 foreach ($attributeData as $key => $value) {
-                    $product->setData($key, $value);
+                    if (is_array($value)) {
+                        $languageSpecificAttributes[$key] = $value;
+                        continue;
+                    }
+
+                    if (trim($value) == '') {
+                        continue;
+                    }
+                    $productModel->setData($key, $value);
                 }
 
-                $product->setAttributeSetId($attributeSetId);
-                $product->setCategoryIds($productCategoryIds);
+                $productModel->setAttributeSetId($attributeSetId);
+                $productModel->setCategoryIds($productCategoryIds);
 
+                $productModel->setPrice($productData['price']);
+                $productModel->setName($productData['name']);
 
-                $product= $this->productRepository->save($product);
-
-                $product->setPrice($productData['price']);
-
-                if($parentId){
-                    $product->setVisibility( Visibility::VISIBILITY_NOT_VISIBLE );
-                    $product->setName($productData['sku']);
-                    $this->handleProductImages($product, $images,['thumbnail']);
-                }
-                else{
-                    $product->setName($productData['name']);
-                    $this->handleProductImages($product, $images);
+                if ($parentId) {
+                    $productModel->setVisibility(Visibility::VISIBILITY_NOT_VISIBLE);
                 }
 
-                $product->save();
+
+                if (!$parentId) {
+                    $this->handleProductImages($productModel, $images);
+                } else {
+                    $configurableProducts[$parentId]['simpleIds'][] = $productModel->getId();
+                }
+
+                $this->linkManagement->assignProductToCategories(
+                    $productModel->getSku(),
+                    $productCategoryIds
+                );
+
+                $this->handleLanguageSpecificAttributes($productModel, $languageSpecificAttributes);
+                $productModel->save();
+
             }
 
-
-            // categories
-            if (count($productCategoryIds) == 0) {
-            }
-
-            $this->linkManagement->assignProductToCategories(
-                $product->getSku(),
-                $productCategoryIds
-            );
             $this->progress->barAdvance('import_product');
         }
 
         foreach ($configurableProducts as $configurableId => $configurable) {
+
             /**
              * @var $builder \Skwirrel\Pim\Model\ConfigurableBuilder
              */
             $builder = $this->configurableBuilderFactory->create();
 
+
             $builder->setConfigurableAttributeCodes([$configurable['data']['configurable_attribute_code']]);
             $configurableSkuParts = [];
 
-            foreach ($configurable['simples'] as $simpleId => $simpleSku) {
-                $configurableSkuParts[] = trim($simpleSku);
-                $builder->addSimpleProductBySku($simpleSku);
+
+            foreach ($configurable['simpleIds'] as $simpleId) {
+                $builder->addSimpleProductById($simpleId);
             }
 
             $configurableProduct = $builder->build([
-                'sku' => implode('-', $configurableSkuParts),
+                'sku' => $configurable['data']['manufacturer_product_code'] != '' ? $configurable['data']['manufacturer_product_code'] : 'product_' . $configurableId,
                 'attribute_set_id' => $configurable['attribute_set_id'],
-                'skwirrel_id' => $this->mapping->getSkwirrelId($configurableId,'product'),
+                'skwirrel_id' => $this->mapping->getSkwirrelId($configurableId, 'product'),
                 'name' => $configurable['data']['name'],
                 'category_ids' => $configurable['category_ids'],
                 'description' => $configurable['description'],
@@ -266,13 +311,25 @@ class Product extends AbstractImport
                     'qty' => 100
                 ],
             ]);
+
             $configurableProduct->setVisibility(Visibility::VISIBILITY_BOTH);
 
-            $configurableImages = $configurable['data']['attachments'];
+            $languageSpecificAttributes = [];
 
-            $this->handleProductImages($configurableProduct, $configurableImages);
-
+            foreach ($configurable['attributeData'] as $attributeCode => $attributeValue) {
+                if (is_array($attributeValue)) {
+                    $languageSpecificAttributes[$attributeCode] = $attributeValue;
+                    continue;
+                }
+                $configurableProduct->setData($attributeCode, $attributeValue);
+            }
             $configurableProduct->save();
+
+            $configurableImages = isset($configurable['data']['images']) ? $configurable['data']['images'] : [];
+
+
+            $this->handleProductImages((int)$configurableProduct->getId(), $configurableImages);
+            $this->handleLanguageSpecificAttributes($configurableProduct, $languageSpecificAttributes);
         }
 
 
@@ -280,30 +337,40 @@ class Product extends AbstractImport
 
     }
 
-    protected function handleProductImages($product, $images, $roles = false)
+    protected function handleProductImages($product, $images, $roles = false, $existing = false)
     {
-        $existingGalleryImages = [];
-        $imagesToKeep = [];
 
-        if($roles && is_array($roles)){
-            $imageRoles = $roles;
+        if (is_int($product) || is_string($product)) {
+            $product = $this->productRepository->getById($product, true, 0);
         }
-        elseif(is_string($roles)){
+
+        $productGallery = ObjectManager::getInstance()->create('Magento\Catalog\Model\ResourceModel\Product\Gallery');
+
+        $existingGalleryImages = [];
+        $imagesToAdd = [];
+
+        $imageRoles = ['image', 'small_image', 'thumbnail'];
+
+        if ($roles && is_array($roles)) {
+            $imageRoles = $roles;
+        } elseif (is_string($roles)) {
             $imageRoles = [$roles];
         }
-        else{
-            $imageRoles = ['image', 'small_image', 'thumbnail'];
-        }
-
 
         if (!$product->hasGalleryAttribute()) {
             $product->setMediaGallery(['images' => [], 'values' => []]);
         }
 
-        foreach ($product->getMediaGalleryEntries() as $entry) {
-            $entryName = $this->helper->getNormalizedProductImageFromEntry($entry);
-            $imageId = md5($entryName);
-            $existingGalleryImages[$imageId] = $entry->getFile();
+        $entries = $product->getMediaGalleryEntries();
+        $removed = false;
+        $added = false;
+
+
+        if ($entries && is_array($entries)) {
+            foreach ($entries as $i => $entry) {
+                $productGallery->deleteGallery($entry->getId());
+                $this->galleryProcessor->removeImage($product, $entry->getFile());
+            }
         }
 
         foreach ($images as $image) {
@@ -312,18 +379,19 @@ class Product extends AbstractImport
 
             if (!isset($existingGalleryImages[$imageId])) {
                 $importFilename = $this->helper->createImageImportFile($image, true);
-                $this->galleryProcessor->addImage($product, $importFilename, $imageRoles, false, false);
-                $imagesToKeep[$imageId] = $imageId;
-
-            } else {
-                $imagesToKeep[$imageId] = $imageId;
+                $imagesToAdd[$imageId] = $importFilename;
             }
+
         }
 
-        foreach ($existingGalleryImages as $imageId => $existingGalleryImage) {
-            if (!isset($imagesToKeep[$imageId])) {
-                $this->galleryProcessor->removeImage($product, $existingGalleryImage);
-            }
+        foreach ($imagesToAdd as $imageId => $importFileName) {
+            $added = true;
+            $this->galleryProcessor->addImage($product, $importFileName, $imageRoles, false, false);
+
+        }
+
+        if ($added || $removed) {
+            $product->save();
         }
 
     }
@@ -378,11 +446,26 @@ class Product extends AbstractImport
 
     private function findProductAttributeValue($magentoAttributeName, $attributeValue, $retry = false)
     {
-        try {
-            $attribute = $this->attributeRepository->get($magentoAttributeName);
-            if (!$attribute) {
+        $attribute = $this->attributeRepository->get($magentoAttributeName);
+        if (!$attribute) {
+            return $attributeValue;
+        }
+
+        /**
+         * Return values as array if not a select type
+         */
+        if ($attribute->getBackendType() != 'int' && $attribute->getFrontendInput() != 'select') {
+
+            if (is_array($attributeValue)) {
                 return $attributeValue;
             }
+        }
+
+        try {
+
+            /**
+             * Handle select type attribute values
+             */
 
             if ($attribute->getBackendType() == 'int' && $attribute->getFrontendInput() == 'select') {
 
@@ -400,14 +483,15 @@ class Product extends AbstractImport
                 }
 
                 if (trim($optionValue) != '' && !$retry) {
-                    $newOptions = [
-                        'option' => [
-                            'value' => [
-                                'option_0' => $attributeValue
 
-                            ]
-                        ]
-                    ];
+                    $newOptions = [];
+                    $newOptions['option']['value']['option_0'][0] = $optionValue;
+
+                    foreach ($this->mapping->getWebsites() as $website) {
+                        foreach ($website['storeviews'] as $storeview) {
+                            $newOptions['option']['value']['option_0'][$storeview['storeviewid']] = $optionValue;
+                        }
+                    }
 
                     $attribute->addData($newOptions);
                     $attribute->save();
@@ -460,5 +544,26 @@ class Product extends AbstractImport
             }
         }
     }
+
+    private function handleLanguageSpecificAttributes($productModel, $languageSpecificAttributes)
+    {
+        foreach ($this->mapping->getWebsites() as $website) {
+            foreach ($website['storeviews'] as $storeview) {
+                $locale = $storeview['locale'];
+                $product = $this->productRepository->getById($productModel->getId(), true, $storeview['storeviewid']);
+
+                foreach ($languageSpecificAttributes as $attributeCode => $values) {
+                    if (isset($values[$locale]) && $values[$locale] != '') {
+                        $product->setData($attributeCode, $values[$locale]);
+                    } else {
+                    }
+                }
+                $product->save();
+
+            }
+        }
+
+    }
+
 
 }

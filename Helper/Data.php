@@ -76,7 +76,8 @@ class Data extends AbstractHelper
         $baseName = basename($imagePath);
 
         $targetPath = $pubPath.'/media/import';
-        $targetFile = $targetPath.'/'.md5($imagePath).'_'.$baseName;
+        $targetFile = $targetPath.'/'.$baseName;
+
         if($doCopy){
             copy($imagePath, $targetFile);
         }

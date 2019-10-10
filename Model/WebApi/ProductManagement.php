@@ -6,6 +6,7 @@ use Skwirrel\Pim\Model\Mapping;
 use Skwirrel\Pim\Model\ProductImporter;
 use Skwirrel\Pim\WebApi\ProductManagementInterface;
 use Skwirrel\Pim\WebApi\WebhookParamsInterface;
+use Magento\Framework\MessageQueue\PublisherInterface;
 
 class ProductManagement implements ProductManagementInterface
 {
@@ -22,16 +23,28 @@ class ProductManagement implements ProductManagementInterface
      * @var \Skwirrel\Pim\Client\ApiClient
      */
     private $apiClient;
+    /**
+     * @var \Magento\Framework\MessageQueue\PublisherInterface
+     */
+    private $publisher;
+    /**
+     * @var \Skwirrel\Pim\Helper\Data
+     */
+    private $data;
 
     public function __construct(
         \Magento\Framework\Webapi\Rest\Request $request,
+        PublisherInterface $publisher,
         ProductImporter $importer,
-        ApiClient $apiClient
+        ApiClient $apiClient,
+        \Skwirrel\Pim\Helper\Data $data
 
     ) {
         $this->request = $request;
         $this->importer = $importer;
         $this->apiClient = $apiClient;
+        $this->publisher = $publisher;
+        $this->data = $data;
     }
 
     public function getProduct($id = null)
@@ -47,6 +60,15 @@ class ProductManagement implements ProductManagementInterface
      */
     public function postChanges($jsonrpc, $method, $params)
     {
+
+        $key = $this->data->getConfig('skwirrel/webhook_options/header_key');
+        if($key && $key !== ''){
+            if($key !== $this->request->getHeader('x-webhookauth')){
+                print_r('NOT AUTHORIZED');
+                return;
+            }
+        }
+
         $productParams = $params->getProduct();
         $changed = isset($productParams['change']) ? $productParams['change'] : [];
         foreach ($changed as $changedId) {
@@ -66,32 +88,8 @@ class ProductManagement implements ProductManagementInterface
 
     protected function handleChange($changedId)
     {
-        try {
-            $response = $this->apiClient->makeRequest('getProductsByID', [
-                'product_id' => [$changedId],
-                'include_categories' => true,
-                'include_attachments' => true,
-                'include_trade_items' => true,
-                'include_trade_item_prices' => true,
-                'include_trade_item_translations' => true,
-                'include_etim' => true,
-                'include_related_products' => false,
-                'include_product_translations' => true,
-                'include_languages' => ['en', 'nl']
-            ]);
 
-            $products = (array)$response->products;
-            foreach ($products as $id => $product) {
-
-                $this->importer->import($product);
-            }
-
-        } catch (\Exception $e) {
-
-            print_r('error : '.$e->getMessage().' - '.$e->getFile().' - '.$e->getLine()) ;
-            print_r($e->getTraceAsString()) ;
-        }
-
+        $this->publisher->publish('process.webhook', json_encode(['update' => [$changedId]]));
 
     }
 

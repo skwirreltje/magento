@@ -7,10 +7,12 @@
                 <item name="DownloadProducts" xsi:type="object">Skwirrel\Pim\Console\Command\DownloadProducts</item>
                 <item name="ProcessCommand" xsi:type="object">Skwirrel\Pim\Console\Command\ProcessCommand</item>
                 <item name="ImportCommand" xsi:type="object">Skwirrel\Pim\Console\Command\ImportCommand</item>
+                <item name="MagCommand" xsi:type="object">Skwirrel\Pim\Console\Command\MagCommand</item>
             </argument>
         </arguments>
     </type>
 
+    <preference for="\Magento\Catalog\Block\Product\View\Attributes" type="\Skwirrel\Pim\Block\View\Attributes"></preference>
     <type name="\Skwirrel\Pim\Model\Import\Attribute">
         <arguments>
             <argument name="converter" xsi:type="object">Skwirrel\Pim\Model\Converter\Attribute</argument>

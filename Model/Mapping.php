@@ -138,7 +138,6 @@ class Mapping implements MappingInterface
     public function load()
     {
         $mappingFile = $this->helper->getMappingFilepath();
-        print_r(['mapping file' => $mappingFile]);
         $mappingFileXml = new Config($mappingFile);
         $this->importMapping = $mappingFileXml;
     }

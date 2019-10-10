@@ -85,6 +85,7 @@ class Product extends AbstractConverter
         $this->progress->barStart('product_convert', count($files));
         foreach ($files as $filePath) {
             $productData = json_decode(file_get_contents($filePath), true);
+
             if (!isset($productData['_etim']) || !isset($productData['_etim']['_etim_features'])) {
                 $this->progress->barAdvance('product_convert');
                 continue;
@@ -104,8 +105,7 @@ class Product extends AbstractConverter
 
     public function convertProduct($productData)
     {
-        $features = $productData['_etim']['_etim_features'];
-
+        $features = $this->convertProductFeatures($productData);
         $products = [];
         $tradeItems = $productData['_trade_items'];
         if (count($tradeItems) == 0) {
@@ -140,10 +140,18 @@ class Product extends AbstractConverter
                 'parent_id' => $isPartOfConfigurable ? $productData['product_id'] : 0
             ];
 
+
+            if(isset($data['skwirrel']['_attachments'])){
+
+                $data['attributes']['attachments'] = $this->convertAttachments($data['skwirrel']['_attachments']);
+
+            }
+
             foreach ($features as $code => $feature) {
                 $attributeCode = strtolower($code);
                 $data['attributes'][$attributeCode] = $this->parseProductFeatureValue($feature);
             }
+
 
             foreach ($this->brandImporter->getConvertedData() as $brand) {
                 if ($productData['brand_id'] == $brand->brand_id) {
@@ -171,6 +179,50 @@ class Product extends AbstractConverter
         }
 
         return $products;
+    }
+
+    function convertProductFeatures($productData)
+    {
+        $features = $productData['_etim']['_etim_features'];
+        if (isset($productData['_custom_class'])) {
+            $customFeatures = isset($productData['_custom_class']['_custom_features']) ? $productData['_custom_class']['_custom_features'] : [];
+
+            foreach ($customFeatures as $customFeature) {
+                $featureCode = 'custom_' . $customFeature['custom_feature_id'];
+
+                $featureTranslations = [];
+                foreach ($customFeature['_custom_feature_translations'] as $lang => $translation) {
+                    $featureTranslations[$lang] = [
+                        'language' => $lang,
+                        'etim_feature_description' => $translation['custom_feature_description']
+                    ];
+                }
+                $valueTranslations = [];
+                if (isset($customFeature['_custom_value_translations'])) {
+                    foreach ($customFeature['_custom_value_translations'] as $lang => $translation) {
+                        $valueTranslations[$lang] = [
+                            'language' => $lang,
+                            'etim_value_description' => $translation['custom_value_description']
+                        ];
+                    }
+
+                }
+
+                $features[$featureCode] = [
+                    'etim_feature_code' => $featureCode,
+                    'etim_feature_type' => $customFeature['custom_feature_type'],
+                    'etim_value_code' => $customFeature['custom_value_id'],
+                    'numeric_value' => $customFeature['numeric_value'],
+                    'logical_value' => $customFeature['logical_value'],
+                    '_etim_feature_translations' => $featureTranslations,
+                    '_etim_value_translations' => $valueTranslations,
+                ];
+
+
+            }
+
+        }
+        return $features;
     }
 
 
@@ -240,7 +292,7 @@ class Product extends AbstractConverter
 
     private function getSkuFromTradeItem($tradeItem)
     {
-        foreach ([$tradeItem['supplier_trade_item_code'], $tradeItem['supplier_trade_item_code'], 'product_' . $tradeItem['trade_item_id']] as $value) {
+        foreach ([$tradeItem['supplier_trade_item_code'], 'item_' . $tradeItem['trade_item_id']] as $value) {
             if (trim($value) != '') {
                 return trim($value);
             }
@@ -253,13 +305,14 @@ class Product extends AbstractConverter
     {
         $translations = array_values($productData['_product_translations']);
         $languages = $this->mapping->getLanguages();
+        $values = [];
         foreach($translations as $translation){
             if(in_array($translation['language'], $languages)){
-                return $translation[$key];
+                $values[$translation['language']] = $translation[$key];
             }
         }
-        return '';
 
+        return count($values) > 0 ? $values : '';
     }
 
     private function getProductName($productData, $tradeItem)
@@ -273,5 +326,41 @@ class Product extends AbstractConverter
 
         return $this->getProductTranslation($productData,'product_description');
 
+    }
+
+    private function convertAttachments($items)
+    {
+        $attachments = [];
+        foreach($items as $attachment){
+            if($attachment['product_attachment_type_code'] == 'PPI'){
+                continue;
+            }
+
+            $typeName = $attachment['product_attachment_type_code'];
+            $attachments[] = [
+                'title' => isset($attachment['product_attachment_title']) ? $attachment['product_attachment_title'] : '',
+                'description' => isset($attachment['product_attachment_description']) ? $attachment['product_attachment_description']  : '',
+                'language' => isset($attachment['product_attachment_language']) ? $attachment['product_attachment_language'] : '',
+                'file_type' => $this->parseAttachmentFileType($attachment['file_mimetype']),
+                'type' => $typeName,
+                'url' => $attachment['source_url']
+            ];
+        }
+        return json_encode($attachments);
+    }
+
+
+    private function parseAttachmentFileType($fileType)
+    {
+        $parts = explode('/',$fileType);
+        if(count($parts) == 2){
+            $fileType = $parts[1];
+        }
+
+        $parts = explode('.',$fileType);
+        if(count($parts) == 2){
+            return strtolower($parts[1]) ;
+        }
+        return strtolower($parts[0]);
     }
 }

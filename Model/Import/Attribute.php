@@ -1,4 +1,5 @@
 <?php
+
 namespace Skwirrel\Pim\Model\Import;
 
 use Skwirrel\Pim\Model\Converter\Etim\EtimAttribute;
@@ -79,8 +80,8 @@ class Attribute extends AbstractImport
         $websites = $this->mapping->getWebsites();
         $mappedAttributes = $this->getConvertedData();
 
-
         $parsedAttributes = $this->getConvertedProductData();
+        $this->checkAttachmentAttribute();
 
         $mapped = [];
         foreach ($mappedAttributes as $mappedAttribute) {
@@ -130,13 +131,12 @@ class Attribute extends AbstractImport
 
             if (!isset($existingAttributes[$attributeCode])) {
 
-
                 $data = $attribute;
                 unset($data['pim_data']);
 
                 $data['label'] = $labelTranslations[0];
 
-                if($data['filterable'] == '1' && $data['input'] == 'select'){
+                if ($data['filterable'] == '1' && $data['input'] == 'select') {
                     $data['filterable'] = 2;
                 }
 
@@ -174,8 +174,7 @@ class Attribute extends AbstractImport
                         foreach ($options['option']['value'] as $key => $values) {
                             if (!in_array($values[0], $existingOptions)) {
                                 $addOptions[$key] = $values;
-                            }
-                            else{
+                            } else {
                                 $idKey = array_search($values[0], $existingOptions);
                                 $addOptions[$idKey] = $values;
                             }
@@ -192,6 +191,8 @@ class Attribute extends AbstractImport
             }
 
         }
+
+        $this->checkAttachmentAttribute();
 
 
     }
@@ -218,6 +219,9 @@ class Attribute extends AbstractImport
                 foreach ($websites as $website) {
                     foreach ($website['storeviews'] as $storeview) {
                         if ($storeview['locale'] == $locale) {
+                            if(!isset($options['option']['value'][$optionId][0])){
+                                $options['option']['value'][$optionId][0] = trim($value);
+                            }
                             $options['option']['value'][$optionId][$storeview['storeviewid']] = trim($value);
                         }
                     }
@@ -290,7 +294,8 @@ class Attribute extends AbstractImport
     private function convertProduct($productData)
     {
 
-        $features = $productData['_etim']['_etim_features'];
+        $features = $this->convertProductFeatures($productData);
+
         $classId = $productData['_etim']['etim_class_code'];
         foreach ($features as $code => $feature) {
 
@@ -316,16 +321,60 @@ class Attribute extends AbstractImport
         // parse trade items into configurable attributes
         $this->convertProductTradeItems($productData);
 
-
     }
+
+    function convertProductFeatures($productData)
+    {
+        $features = $productData['_etim']['_etim_features'];
+        if (isset($productData['_custom_class'])) {
+            $customFeatures = isset($productData['_custom_class']['_custom_features']) ? $productData['_custom_class']['_custom_features'] : [];
+
+            foreach ($customFeatures as $customFeature) {
+                $featureCode = 'custom_' . $customFeature['custom_feature_id'];
+
+                $featureTranslations = [];
+                foreach ($customFeature['_custom_feature_translations'] as $lang => $translation) {
+                    $featureTranslations[$lang] = [
+                        'language' => $lang,
+                        'etim_feature_description' => $translation['custom_feature_description']
+                    ];
+                }
+                $valueTranslations = [];
+                if (isset($customFeature['_custom_value_translations'])) {
+                    foreach ($customFeature['_custom_value_translations'] as $lang => $translation) {
+                        $valueTranslations[$lang] = [
+                            'language' => $lang,
+                            'etim_value_description' => $translation['custom_value_description']
+                        ];
+                    }
+
+                }
+
+                $features[$featureCode] = [
+                    'etim_feature_code' => $featureCode,
+                    'etim_feature_type' => $customFeature['custom_feature_type'],
+                    'etim_value_code' => $customFeature['custom_value_id'],
+                    'numeric_value' => $customFeature['numeric_value'],
+                    'logical_value' => $customFeature['logical_value'],
+                    '_etim_feature_translations' => $featureTranslations,
+                    '_etim_value_translations' => $valueTranslations,
+                ];
+
+
+            }
+
+        }
+        return $features;
+    }
+
 
     private function convertProductTradeItems($productData)
     {
         $tradeItems = $productData['_trade_items'];
-        foreach($tradeItems as $tradeItem){
+        foreach ($tradeItems as $tradeItem) {
             $attributeCode = $this->mapping->getAttributeCodeForTradeItemUnit($tradeItem['use_unit_uom']);
 
-            if(!isset($this->parsedProductData[$attributeCode])){
+            if (!isset($this->parsedProductData[$attributeCode])) {
                 $this->parsedProductData[$attributeCode] = [
                     'input' => 'select',
                     'type' => 'int',
@@ -357,10 +406,10 @@ class Attribute extends AbstractImport
                 ];
             }
 
-            $valueCode = strtolower($tradeItem['quantity_of_use_units'].'_'.$tradeItem['use_unit_uom']);
+            $valueCode = strtolower($tradeItem['quantity_of_use_units'] . '_' . $tradeItem['use_unit_uom']);
             $values = [];
-            foreach($this->mapping->getLanguages() as $language){
-                $values[$language] = $tradeItem['quantity_of_use_units'].' '.$tradeItem['use_unit_uom'];
+            foreach ($this->mapping->getLanguages() as $language) {
+                $values[$language] = $tradeItem['quantity_of_use_units'] . ' ' . $tradeItem['use_unit_uom'];
             }
             $this->parsedProductData[$attributeCode]['pim_data']['options'][$valueCode] = $values;
         }
@@ -386,7 +435,7 @@ class Attribute extends AbstractImport
             'comparable' => false,
             'user_defined' => true,
             'is_user_defined' => true,
-            'visible_on_front' => false,
+            'visible_on_front' => true,
             'used_in_product_listing' => false,
             'is_unique' => false,
             'pim_data' => [
@@ -441,6 +490,42 @@ class Attribute extends AbstractImport
         return $config;
     }
 
+    private function checkAttachmentAttribute()
+    {
+        $attr = $this->eavSetup->getAttribute(\Magento\Catalog\Model\Product::ENTITY, 'attachments');
+        if ($attr) {
+            return;
+        }
+
+        $data = [
+            'input' => 'textarea',
+            'type' => 'text',
+            'is_global' => 1,
+            'label' => 'Attachments',
+            'class' => '',
+            'backend' => '',
+            'source' => '',
+            'visible' => false,
+            'required' => false,
+            'searchable' => false,
+            'filterable' => false,
+            'comparable' => false,
+            'user_defined' => true,
+            'is_user_defined' => true,
+            'visible_on_front' => false,
+            'used_in_product_listing' => true,
+            'is_unique' => false,
+            'group' => 'General',
+            'frontend' => ''
+        ];
+        $this->eavSetup->addAttribute(
+            \Magento\Catalog\Model\Product::ENTITY,
+            'attachments',
+            $data
+        );
+
+
+    }
 
 
 }

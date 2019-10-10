@@ -23,6 +23,13 @@
                     <comment/>
                 </field>
             </group>
+            <group id="webhook_options" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label">
+                <label>Webhook Options</label>
+                <field id="header_key" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="10" translate="label" type="text">
+                    <label>Header Key</label>
+                    <comment/>
+                </field>
+            </group>
         </section>
     </system>
 </config>

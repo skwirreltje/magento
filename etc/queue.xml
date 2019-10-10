@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * copyright © 2016 magento. all rights reserved.
+ * see copying.txt for license details.
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:MessageQueue/etc/queue.xsd">
+    <broker topic="process.webhook" type="db" exchange="magento">
+        <queue name="async.skwirrel.pim.webhook" handler="Skwirrel\Pim\Model\HandlerAsync\ProcessWebhook::process" consumer="async.consumer.processwebhook" />
+    </broker>
+</config>
