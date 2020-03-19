@@ -82,21 +82,24 @@ class DownloadProducts extends Command
 
         $basePath = $this->getFileBasePath();
 
+        // delete old files
+        $this->deleteImportFiles($basePath);
+
         $this->progress->setOutput($output);
         $this->progress->info('Downloading products');
         $currentPage = 1;
         $continue = true;
         $numProducts = false;
-        $numPages  = false;
+        $numPages = false;
         while ($continue) {
             $response = $this->getProductsForPage($currentPage);
-            if($currentPage == 1){
+            if ($currentPage == 1) {
 
-                if(isset($response->page->number_of_pages)){
+                if (isset($response->page->number_of_pages)) {
                     $numPages = $response->page->number_of_pages;
                 }
-                
-                if(isset($response->page->total_products)){
+
+                if (isset($response->page->total_products)) {
 
                     $numProducts = $response->page->total_products;
                     $this->progress->barStart('product', $numProducts);
@@ -104,9 +107,9 @@ class DownloadProducts extends Command
             }
 
             if (isset($response->products)) {
-                $this->progress->info('num products for page '.count($response->products));
+                $this->progress->info('num products for page ' . count($response->products));
 
-                if(count($response->products) == 0){
+                if (count($response->products) == 0) {
                     $continue = false;
                 }
 
@@ -114,19 +117,17 @@ class DownloadProducts extends Command
 
                     if ($this->validateProductItem($product)) {
                         $attachments = $this->parseAttachments($product);
-                        $product->attachments = $this->writeProductAttachments($basePath,$product,$attachments);
+                        $product->attachments = $this->writeProductAttachments($basePath, $product, $attachments);
                         $this->writeProductItem($basePath, $product);
-                    }
-                    else{
+                    } else {
                         print_r($product);
                     }
 
-                    if($numProducts){
+                    if ($numProducts) {
                         $this->progress->barAdvance('product');
                     }
                 }
-            }
-            else{
+            } else {
                 $this->progress->info('Error while downloading products');
                 $continue = false;
             }
@@ -173,6 +174,24 @@ class DownloadProducts extends Command
         parent::configure();
     }
 
+    protected function deleteImportFiles($baseDir)
+    {
+
+        $fp = opendir($baseDir);
+
+        while ($fp && $file = readdir($fp)) {
+            if($file == '.' || $file == '..'){
+                continue;
+            }
+            if (is_dir($baseDir . '/' . $file)) {
+                $this->deleteImportFiles($baseDir.'/'.$file);
+                rmdir($baseDir . '/' . $file);
+            } else {
+                unlink($baseDir . '/' . $file);
+            }
+        }
+    }
+
     private function getFileBasePath()
     {
         $path = $this->dataHelper->getDirectory('var');
@@ -189,14 +208,14 @@ class DownloadProducts extends Command
     {
 
         if (!isset($product->{'_trade_items'}) || empty($product->{'_trade_items'})) {
-           //  return false;
+            //  return false;
         }
         if (!isset($product->{'_etim'}) || empty($product->{'_etim'}->{'_etim_features'})) {
 
             return false;
         }
 
-        if(empty((array) $product->_categories)){
+        if (empty((array)$product->_categories)) {
             //return false;
         }
 
@@ -213,12 +232,12 @@ class DownloadProducts extends Command
     private function parseAttachments($product)
     {
         $attachments = [];
-        if(!isset($product->{'_attachments'})){
+        if (!isset($product->{'_attachments'})) {
             return $attachments;
         }
 
-        foreach($product->{'_attachments'} as $item){
-            if($this->isAttachmentImage($item) && $item->product_attachment_type_code == 'PPI'){
+        foreach ($product->{'_attachments'} as $item) {
+            if ($this->isAttachmentImage($item) && $item->product_attachment_type_code == 'PPI') {
                 $attachments[] = [
                     'source_url' => $item->source_url,
                     'mime_type' => $item->file_mimetype,
@@ -231,15 +250,15 @@ class DownloadProducts extends Command
 
     private function isAttachmentImage($item)
     {
-        if($item->source_type == 'FILE'){
-            if(in_array($item->file_mimetype,['image/jpeg','image/png'])){
+        if ($item->source_type == 'FILE') {
+            if (in_array($item->file_mimetype, ['image/jpeg', 'image/png'])) {
                 return true;
             }
         }
-        if($item->source_type == 'URL'){
+        if ($item->source_type == 'URL') {
             $baseName = basename($item->source_url);
-            foreach(['.png','.jpeg','.jpg'] as $ext){
-                if(strpos(strtolower($baseName),$ext)!== false){
+            foreach (['.png', '.jpeg', '.jpg'] as $ext) {
+                if (strpos(strtolower($baseName), $ext) !== false) {
                     return true;
                 }
 
@@ -251,20 +270,19 @@ class DownloadProducts extends Command
     private function writeProductAttachments($basePath, $product, $attachments)
     {
         $writtenAttachments = [];
-        $filePath = $basePath.'/attachmments_'.$product->product_id;
-        if(!file_exists($filePath)){
+        $filePath = $basePath . '/attachmments_' . $product->product_id;
+        if (!file_exists($filePath)) {
             mkdir($filePath);
         }
-        foreach($attachments as $attachment){
-            $imageFilePath = $filePath.'/'.basename($attachment['source_url']);
-            try{
-                if($content = file_get_contents($attachment['source_url'])){
+        foreach ($attachments as $attachment) {
+            $imageFilePath = $filePath . '/' . basename($attachment['source_url']);
+            try {
+                if ($content = file_get_contents($attachment['source_url'])) {
                     file_put_contents($imageFilePath, $content);
                 }
                 $writtenAttachments[] = $imageFilePath;
 
-            }
-            catch(\Exception $e){
+            } catch (\Exception $e) {
 
             }
 
